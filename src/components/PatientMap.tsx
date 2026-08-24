@@ -43,7 +43,29 @@ const UNIT_LOCATIONS: Record<string, { floor: string; lat: number; lng: number }
   "depo farmasi 1":           { floor: "1", lat: 817.35, lng: 929.33 },
   "depofarmasi1":             { floor: "1", lat: 817.35, lng: 929.33 },
   "poli saraf":               { floor: "1", lat: 787.92, lng: 1026.90 },
-  "poli kandungan":           { floor: "1", lat: 771.10, lng: 1123.63 },
+  "poli syaraf":              { floor: "1", lat: 787.92, lng: 1026.90 },
+  "poli anak":                { floor: "1", lat: 640.00, lng: 1160.00 },
+  "poli psikiatri":           { floor: "1", lat: 620.00, lng: 1080.00 },
+  "poli mata":                { floor: "1", lat: 610.00, lng: 1000.00 },
+  "poli hema onko":           { floor: "1", lat: 685.89, lng: 1263.10 },
+  "poli hema onko anak":      { floor: "1", lat: 685.89, lng: 1263.10 },
+  "poli kulit kelamin":       { floor: "1", lat: 570.00, lng: 900.00 },
+  "poli kemoterapi":          { floor: "1", lat: 663.97, lng: 1326.76 },
+  "poli bedah urologi":       { floor: "1", lat: 720.00, lng: 850.00 },
+  "poli gigi":                { floor: "1", lat: 550.00, lng: 800.00 },
+  "poli tht":                 { floor: "1", lat: 580.00, lng: 850.00 },
+  "poli vct":                 { floor: "1", lat: 540.00, lng: 900.00 },
+  "poli bedah anak":          { floor: "1", lat: 720.00, lng: 780.00 },
+  "poli bedah anastesi":      { floor: "1", lat: 742.51, lng: 819.14 },
+  "poli eksekutif":           { floor: "1", lat: 500.00, lng: 700.00 },
+  "poli bedah plastik":       { floor: "1", lat: 700.00, lng: 750.00 },
+  "soeskin":                  { floor: "1", lat: 570.00, lng: 900.00 },
+  "gastroenterologi-hepatologi": { floor: "1", lat: 861.08, lng: 742.59 },
+  "premyum":                  { floor: "1", lat: 500.00, lng: 700.00 },
+  "poli bedah thorax":        { floor: "1", lat: 700.00, lng: 820.00 },
+  "spine/klinik sp.":         { floor: "1", lat: 784.56, lng: 673.62 },
+  "poli hip and knee":        { floor: "1", lat: 784.56, lng: 673.62 },
+  "poli kardiologi anak":     { floor: "1", lat: 835.01, lng: 832.60 },
   "kehamilan":                { floor: "1", lat: 771.10, lng: 1123.63 },
   "hemodalisa":               { floor: "1", lat: 801.37, lng: 602.12 },
   "poli bedah ortopedi":      { floor: "1", lat: 784.56, lng: 673.62 },
@@ -72,6 +94,21 @@ function findUnitLocation(unitName: string): { floor: string; lat: number; lng: 
   return null;
 }
 
+/** Sebarkan pin pasien secara deterministik di sekitar koordinat poli agar tidak bertumpuk. */
+function getPatientPinPosition(location: { lat: number; lng: number }, index: number, total: number) {
+  if (total <= 1) return location;
+  const ring = Math.floor((Math.sqrt(index + 1) - 1) / 2) + 1;
+  const ringStart = (2 * ring - 1) ** 2;
+  const ringSize = 8 * ring;
+  const ringIndex = (index - ringStart + 1 + ringSize) % ringSize;
+  const angle = (ringIndex / ringSize) * Math.PI * 2;
+  const radius = 13 * ring;
+  return {
+    lat: location.lat + Math.sin(angle) * radius,
+    lng: location.lng + Math.cos(angle) * radius,
+  };
+}
+
 const MAP_BOUNDS: import("leaflet").LatLngBoundsExpression = [[0, 0], [1000, 1600]];
 
 interface PatientMapProps {
@@ -90,46 +127,50 @@ export default function PatientMap({ units = [], mapImage }: PatientMapProps) {
   const [patientsByUnit, setPatientsByUnit] = useState<Record<number, MapPatient[]>>({});
   const [overduePatients, setOverduePatients] = useState<Set<number>>(new Set());
 
-  // Fetch history pasien untuk deteksi overdue
+  // Fetch history pasien untuk deteksi overdue — menggunakan batch endpoint
   useEffect(() => {
     let cancelled = false;
 
     async function loadPatientHistory() {
-      const queueResults = await Promise.all(units.map(async (unit) => {
-        const patients: MapPatient[] = [];
-        for (const dilayani of ["0", "1"]) {
-          const response = await fetch(`/api/antrian?unit_id=${unit.unit_id}&dilayani=${dilayani}`, { cache: "no-store" });
-          if (!response.ok) continue;
-          const result = await response.json();
-          patients.push(...((result.data ?? []) as MapPatient[]));
-        }
-        return [unit.unit_id, patients] as const;
-      }));
+      const unitIds = units.map((u) => u.unit_id).join(",");
+      if (!unitIds) return;
 
-      const allPatients = queueResults.flatMap(([, patients]) => patients);
-      const overdue = new Set<number>();
-      if (allPatients.length > 0) {
-        const response = await fetch(
-          `/api/history/batch?ids=${allPatients.map((patient) => patient.pasien_id).join(",")}`,
-          { cache: "no-store" },
-        );
-        if (response.ok) {
-          const result = await response.json();
-          const histories = (result.data ?? {}) as Record<number, { [key: string]: unknown }>;
-          for (const patient of allPatients) {
-            const minutes = getWaitMinutes(histories[patient.pasien_id]?.["Total Waktu Tunggu"] as string | null | undefined);
-            if (minutes !== null && minutes > 120) overdue.add(patient.pasien_id);
+      try {
+        // Satu request mengambil semua pasien dari seluruh unit.
+        const response = await fetch(`/api/antrian/map?units=${unitIds}`, { cache: "no-store" });
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const merged = (result.data ?? {}) as Record<number, MapPatient[]>;
+        for (const unit of units) merged[unit.unit_id] ??= [];
+
+        const allPatients = Object.values(merged).flat();
+        const overdue = new Set<number>();
+        if (allPatients.length > 0) {
+          const response = await fetch(
+            `/api/history/batch?ids=${allPatients.map((patient) => patient.pasien_id).join(",")}`,
+            { cache: "no-store" },
+          );
+          if (response.ok) {
+            const result = await response.json();
+            const histories = (result.data ?? {}) as Record<number, { [key: string]: unknown }>;
+            for (const patient of allPatients) {
+              const minutes = getWaitMinutes(histories[patient.pasien_id]?.["Total Waktu Tunggu"] as string | null | undefined);
+              if (minutes !== null && minutes > 120) overdue.add(patient.pasien_id);
+            }
           }
         }
-      }
 
-      if (!cancelled) {
-        setPatientsByUnit(Object.fromEntries(queueResults));
-        setOverduePatients(overdue);
+        if (!cancelled) {
+          setPatientsByUnit(merged);
+          setOverduePatients(overdue);
+        }
+      } catch (error) {
+        console.error("Fetch pasien map error:", error);
       }
     }
 
-    void loadPatientHistory().catch((error) => console.error("Fetch pasien map error:", error));
+    void loadPatientHistory();
     return () => { cancelled = true; };
   }, [units]);
 
@@ -167,7 +208,8 @@ export default function PatientMap({ units = [], mapImage }: PatientMapProps) {
 
       patients.forEach((patient, patientIndex) => {
         const isOverdue = currentOverdue.has(patient.pasien_id);
-        const m = L.circleMarker([location.lat, location.lng], {
+        const position = getPatientPinPosition(location, patientIndex, patients.length);
+        const m = L.circleMarker([position.lat, position.lng], {
           radius: isOverdue ? 8 : 7,
           color: isOverdue ? "#b91c1c" : color,
           fillColor: isOverdue ? "#ef4444" : color,

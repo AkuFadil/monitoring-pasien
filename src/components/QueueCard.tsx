@@ -3,84 +3,26 @@
 import { useEffect, useState } from "react";
 import type { DetailAntrian, HistoryPerjalanan, PasienAntri } from "@/types";
 
-interface QueueCardProps { antrian: DetailAntrian; }
+interface QueueCardProps {
+  antrian: DetailAntrian;
+  eresepCount?: { proses: number; selesai: number };
+}
 type StatusTab = "belum" | "sudah";
 
-export default function QueueCard({ antrian }: QueueCardProps) {
+export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
   const [activeTab, setActiveTab] = useState<StatusTab | null>(null);
   const [patients, setPatients] = useState<PasienAntri[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [patientError, setPatientError] = useState<string | null>(null);
   const [sudahDilayani, setSudahDilayani] = useState(antrian.sudah_dilayani);
   const [belumDilayani, setBelumDilayani] = useState(antrian.belum_dilayani);
-  const [prosesResep, setProsesResep] = useState(0);
-  const [selesaiResep, setSelesaiResep] = useState(0);
+  const prosesResep = eresepCount?.proses ?? 0;
+  const selesaiResep = eresepCount?.selesai ?? 0;
 
-  // Fetch history untuk pasien sudah dilayani → hitung proses/selesai resep
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadStatusCounts() {
-      try {
-        // Fetch pasien belum + sudah dilayani
-        const [waitingRes, servedRes] = await Promise.all([
-          fetch(`/api/antrian?unit_id=${antrian.unit_id}&dilayani=0`, { cache: "no-store" }),
-          fetch(`/api/antrian?unit_id=${antrian.unit_id}&dilayani=1`, { cache: "no-store" }),
-        ]);
-        if (!waitingRes.ok || !servedRes.ok) return;
-
-        const [waitingJson, servedJson] = await Promise.all([
-          waitingRes.json(),
-          servedRes.json(),
-        ]);
-
-        const waitingPatients = (waitingJson.data ?? []) as PasienAntri[];
-        const servedPatients = (servedJson.data ?? []) as PasienAntri[];
-        const allPatients = [...waitingPatients, ...servedPatients];
-
-        if (allPatients.length === 0) {
-          if (!cancelled) {
-            setBelumDilayani(0);
-            setSudahDilayani(0);
-            setProsesResep(0);
-            setSelesaiResep(0);
-          }
-          return;
-        }
-
-        // Fetch batch history
-        const ids = allPatients.map((p) => p.pasien_id).join(",");
-        const historyRes = await fetch(`/api/history/batch?ids=${ids}`, { cache: "no-store" });
-        if (!historyRes.ok) return;
-
-        const historyJson = await historyRes.json();
-        const histories = (historyJson.data ?? {}) as Record<number, HistoryPerjalanan>;
-
-        let countProses = 0;
-        let countSelesai = 0;
-        for (const patient of servedPatients) {
-          const h = histories[patient.pasien_id];
-          if (h?.["Penyerahan Obat"]) {
-            countSelesai++;
-          } else if (h?.["Proses Resep"]) {
-            countProses++;
-          }
-        }
-
-        if (!cancelled) {
-          setBelumDilayani(waitingPatients.length);
-          setSudahDilayani(servedPatients.length);
-          setProsesResep(countProses);
-          setSelesaiResep(countSelesai);
-        }
-      } catch {
-        // biarkan default dari props
-      }
-    }
-
-    void loadStatusCounts();
-    return () => { cancelled = true; };
-  }, [antrian.unit_id]);
+    setSudahDilayani(antrian.sudah_dilayani);
+    setBelumDilayani(antrian.belum_dilayani);
+  }, [antrian.sudah_dilayani, antrian.belum_dilayani]);
 
   async function showPatients(tab: StatusTab) {
     setActiveTab(tab);

@@ -6,6 +6,8 @@ export interface DetailAntrian {
   sudah_dilayani: number;
   total_antrian: number;
   kapasitas: number;
+  proses_eresep?: number;
+  selesai_eresep?: number;
 }
 
 export interface PasienAntri {
