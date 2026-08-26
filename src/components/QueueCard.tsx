@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { DetailAntrian, HistoryPerjalanan, PasienAntri } from "@/types";
 
@@ -51,21 +52,21 @@ export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
           Total Antrian : {antrian.total_antrian}
         </span>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-center pt-2.5">
+      <div className="grid grid-cols-2 gap-2 text-center pt-2.5">
         <button onClick={() => showPatients("belum")} className={`p-2.5 rounded-xl border transition-colors ${activeTab === "belum" ? "bg-rose-900/50 border-rose-400" : "bg-slate-900/60 border-slate-700/30 hover:border-rose-400/70"}`}>
-          <span className="block text-[10px] text-slate-400">Belum Dilayani</span>
+          <span className="block text-[10px] text-slate-400 font-semibold">Belum Dilayani</span>
           <span className="block text-xl font-bold text-rose-400 mt-0.5">{belumDilayani}</span>
         </button>
         <button onClick={() => showPatients("sudah")} className={`p-2.5 rounded-xl border transition-colors ${activeTab === "sudah" ? "bg-emerald-900/50 border-emerald-400" : "bg-slate-900/60 border-slate-700/30 hover:border-emerald-400/70"}`}>
-          <span className="block text-[10px] text-slate-400">Sudah Dilayani</span>
+          <span className="block text-[10px] text-slate-400 font-semibold">Sudah Dilayani</span>
           <span className="block text-xl font-bold text-emerald-400 mt-0.5">{sudahDilayani}</span>
         </button>
         <div className="p-2.5 rounded-xl border border-slate-700/30 bg-slate-900/60 text-center">
-          <span className="block text-[10px] text-slate-400">Proses e-resep</span>
+          <span className="block text-[10px] text-slate-400 font-semibold">Proses e-resep</span>
           <span className="block text-xl font-bold text-rose-400 mt-0.5">{prosesResep}</span>
         </div>
         <div className="p-2.5 rounded-xl border border-slate-700/30 bg-slate-900/60 text-center">
-          <span className="block text-[10px] text-slate-400">Selesai e-resep</span>
+          <span className="block text-[10px] text-slate-400 font-semibold">Selesai e-resep</span>
           <span className="block text-xl font-bold text-emerald-400 mt-0.5">{selesaiResep}</span>
         </div>
       </div>
@@ -97,8 +98,16 @@ export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
                   {patients.map((p, i) => (
                     <tr key={`${p.no_rm}-${i}`} className="hover:bg-slate-800/70">
                       <td className="px-3 py-1.5 text-slate-500">{i + 1}</td>
-                      <td className="px-3 py-1.5 text-cyan-400 font-mono text-[11px]">{p.no_rm}</td>
-                      <td className="px-3 py-1.5 text-slate-200">{p.nama}</td>
+                      <td className="px-3 py-1.5 text-cyan-400 font-mono text-[11px]">
+                        <Link href={`/pasien/${p.pasien_id}`} className="hover:underline">
+                          {p.no_rm}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-1.5 text-slate-200 font-semibold">
+                        <Link href={`/pasien/${p.pasien_id}`} className="hover:text-cyan-300 hover:underline">
+                          {p.nama}
+                        </Link>
+                      </td>
                       <td className="px-3 py-1.5 text-slate-400">{p.nama_peserta}</td>
                     </tr>
                   ))}

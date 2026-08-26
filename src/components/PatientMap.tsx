@@ -39,31 +39,67 @@ const POLI_COLORS_HEX = [
  * Poli lain sengaja tidak dimasukkan agar marker-nya tersembunyi.
  */
 const UNIT_LOCATIONS: Record<string, { floor: string; lat: number; lng: number }> = {
+  "paru": { floor: "1", lat: 883.78, lng: 633.24 },
   "poli paru": { floor: "1", lat: 883.78, lng: 633.24 },
+  "interna": { floor: "1", lat: 861.08, lng: 742.59 },
   "poli interna": { floor: "1", lat: 861.08, lng: 742.59 },
+  "penyakit dalam": { floor: "1", lat: 861.08, lng: 742.59 },
+  "jantung": { floor: "1", lat: 835.01, lng: 832.60 },
+  "jantung dan pembuluh darah": { floor: "1", lat: 835.01, lng: 832.60 },
   "poli jantung": { floor: "1", lat: 835.01, lng: 832.60 },
   "depo farmasi 1": { floor: "1", lat: 817.35, lng: 929.33 },
   "depofarmasi 1": { floor: "1", lat: 817.35, lng: 929.33 },
   "depo 1": { floor: "1", lat: 817.35, lng: 929.33 },
+  "saraf": { floor: "1", lat: 787.92, lng: 1026.90 },
   "poli saraf": { floor: "1", lat: 787.92, lng: 1026.90 },
+  "kandungan": { floor: "1", lat: 771.10, lng: 1123.63 },
+  "kehamilan": { floor: "1", lat: 771.10, lng: 1123.63 },
   "poli kandungan": { floor: "1", lat: 771.10, lng: 1123.63 },
   "hemodalisa": { floor: "1", lat: 801.37, lng: 602.12 },
+  "bedah ortopedi": { floor: "1", lat: 784.56, lng: 673.62 },
+  "bedah orthopedi": { floor: "1", lat: 784.56, lng: 673.62 },
   "poli bedah ortopedi": { floor: "1", lat: 784.56, lng: 673.62 },
+  "hip knee": { floor: "1", lat: 784.56, lng: 673.62 },
+  "spine": { floor: "1", lat: 784.56, lng: 673.62 },
+  "anastesi": { floor: "1", lat: 742.51, lng: 819.14 },
   "poli anastesi": { floor: "1", lat: 742.51, lng: 819.14 },
+  "bedah umum": { floor: "1", lat: 733.26, lng: 890.63 },
   "poli bedah umum": { floor: "1", lat: 733.26, lng: 890.63 },
+  "bedah digestif": { floor: "1", lat: 709.72, lng: 963.82 },
+  "gastroenterologi": { floor: "1", lat: 709.72, lng: 963.82 },
+  "gastroenterologi hepatologi": { floor: "1", lat: 709.72, lng: 963.82 },
+  "gastroenterologi-hepatologi": { floor: "1", lat: 709.72, lng: 963.82 },
   "poli bedah digestif": { floor: "1", lat: 709.72, lng: 963.82 },
+  "bedah saraf": { floor: "1", lat: 698.78, lng: 1030.27 },
+  "bedah syaraf": { floor: "1", lat: 698.78, lng: 1030.27 },
   "poli bedah syaraf": { floor: "1", lat: 698.78, lng: 1030.27 },
   "poli bedah saraf": { floor: "1", lat: 698.78, lng: 1030.27 },
+  "gizi": { floor: "1", lat: 679.53, lng: 1104.66 },
   "poli gizi": { floor: "1", lat: 679.53, lng: 1104.66 },
+  "mri": { floor: "1", lat: 854.18, lng: 526.78 },
   "poli mri": { floor: "1", lat: 854.18, lng: 526.78 },
+  "onkologi": { floor: "1", lat: 685.89, lng: 1263.10 },
+  "bedah onkologi": { floor: "1", lat: 685.89, lng: 1263.10 },
+  "hema onko": { floor: "1", lat: 685.89, lng: 1263.10 },
+  "hemato onkologi": { floor: "1", lat: 685.89, lng: 1263.10 },
   "poli onkologi": { floor: "1", lat: 685.89, lng: 1263.10 },
+  "platinum": { floor: "1", lat: 663.97, lng: 1326.76 },
   "poli platinum": { floor: "1", lat: 663.97, lng: 1326.76 },
+  "vaksin": { floor: "1", lat: 591.14, lng: 1276.54 },
+  "klinik vaksin": { floor: "1", lat: 591.14, lng: 1276.54 },
+  "mcu dan vaksin": { floor: "1", lat: 591.14, lng: 1276.54 },
   "vaksin, klinik": { floor: "1", lat: 591.14, lng: 1276.54 },
 };
 
 function findUnitLocation(unitName: string): { floor: string; lat: number; lng: number } | null {
-  const lower = unitName.toLowerCase().trim().replace(/\s+/g, " ");
-  return UNIT_LOCATIONS[lower] ?? null;
+  const lower = unitName.toLowerCase().trim().replace(/^poli\s+/i, "").replace(/[\s\-_]+/g, " ");
+  if (UNIT_LOCATIONS[lower]) return UNIT_LOCATIONS[lower];
+  if (UNIT_LOCATIONS[`poli ${lower}`]) return UNIT_LOCATIONS[`poli ${lower}`];
+
+  for (const [key, val] of Object.entries(UNIT_LOCATIONS)) {
+    if (lower.includes(key) || key.includes(lower)) return val;
+  }
+  return null;
 }
 
 const MAP_BOUNDS: import("leaflet").LatLngBoundsExpression = [[0, 0], [1000, 1600]];
@@ -71,7 +107,7 @@ const MAP_BOUNDS: import("leaflet").LatLngBoundsExpression = [[0, 0], [1000, 160
 interface PatientMapProps {
   units?: DetailAntrian[];
   mapImage?: string;
-  onSelectedPoliChange?: (summary: PoliSummary | null) => void;
+  onSelectPoli?: (poliId: number) => void;
   onSummariesChange?: (summaries: PoliSummary[]) => void;
   selectedPoliId?: number | null;
 }
@@ -80,7 +116,7 @@ interface PatientMapProps {
 export default function PatientMap({
   units = [],
   mapImage,
-  onSelectedPoliChange,
+  onSelectPoli,
   onSummariesChange,
   selectedPoliId,
 }: PatientMapProps) {
@@ -93,7 +129,6 @@ export default function PatientMap({
   const [summaries, setSummaries] = useState<PoliSummary[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [selectedPoli, setSelectedPoli] = useState<number | null>(null);
 
   // Simpan refs supaya renderMap bisa akses data terbaru tanpa re-trigger effect
   const unitsRef = useRef(units);
@@ -102,8 +137,10 @@ export default function PatientMap({
   floorRef.current = floor;
   const summariesRef = useRef(summaries);
   summariesRef.current = summaries;
-  const selectedPoliRef = useRef(selectedPoli);
-  selectedPoliRef.current = selectedPoli;
+  const selectedPoliRef = useRef(selectedPoliId);
+  selectedPoliRef.current = selectedPoliId;
+  const onSelectPoliRef = useRef(onSelectPoli);
+  onSelectPoliRef.current = onSelectPoli;
 
   useEffect(() => {
     let cancelled = false;
@@ -129,12 +166,6 @@ export default function PatientMap({
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
-  useEffect(() => {
-    if (selectedPoliId !== undefined) {
-      setSelectedPoli(selectedPoliId);
-    }
-  }, [selectedPoliId]);
-
   // Render satu marker static per poli; refresh hanya mengganti data indikator.
   const renderPins = useCallback(() => {
     const L = leafletRef.current;
@@ -142,7 +173,7 @@ export default function PatientMap({
     if (!map || !L) return;
     markersRef.current.forEach((marker) => marker.remove());
     const newMarkers: Marker[] = [];
-    unitsRef.current.forEach((unit, index) => {
+    unitsRef.current.forEach((unit) => {
       const location = findUnitLocation(unit.unit_tampil) ?? findUnitLocation(unit.nama);
       if (!location || location.floor !== floorRef.current.id) return;
       const summary = summariesRef.current.find((item) => item.poli_id === unit.unit_id);
@@ -151,7 +182,9 @@ export default function PatientMap({
       const colors = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
       const html = `<div class=\"poli-marker ${selectedPoliRef.current === unit.unit_id ? "poli-marker-selected" : ""}\"><strong>${unit.unit_tampil}</strong><span class=\"poli-marker-total\">${summary?.belum_diperiksa ?? "…"}</span><div class=\"poli-marker-dots\">${colors.map((color, i) => `<i style=\"background:${color};width:${sizes[i]}px;height:${sizes[i]}px\"></i>`).join("")}</div></div>`;
       const marker = L.marker([location.lat, location.lng], { icon: L.divIcon({ className: "", html, iconSize: [130, 58], iconAnchor: [65, 29] }) }).addTo(map);
-      marker.on("click", () => setSelectedPoli(unit.unit_id));
+      marker.on("click", () => {
+        onSelectPoliRef.current?.(unit.unit_id);
+      });
       marker.bindTooltip(unit.unit_tampil, { direction: "top" });
       newMarkers.push(marker);
     });
@@ -159,7 +192,7 @@ export default function PatientMap({
     map.invalidateSize();
   }, []);
 
-  useEffect(() => { renderPins(); }, [summaries, floor, selectedPoli, renderPins]);
+  useEffect(() => { renderPins(); }, [summaries, floor, selectedPoliId, renderPins]);
 
   // Init Leaflet map — sekali saja saat mount
   useEffect(() => {
@@ -236,12 +269,6 @@ export default function PatientMap({
     }).addTo(map);
     map.invalidateSize();
   }, [floor]);
-
-  const selectedSummary = summaries.find((summary) => summary.poli_id === selectedPoli) ?? null;
-
-  useEffect(() => {
-    onSelectedPoliChange?.(selectedSummary);
-  }, [onSelectedPoliChange, selectedSummary]);
 
   return (
     <section className="rounded-2xl border border-slate-700/40 bg-slate-800 p-5 shadow-md">

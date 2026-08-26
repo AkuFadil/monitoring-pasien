@@ -42,36 +42,36 @@ export default function UnitCapacity({ units, summaries = [], selectedPoliId }: 
     : `${averageMinutes} MENIT`;
 
   return (
-    <section className="rounded-2xl border border-slate-700/40 bg-slate-800 p-5 shadow-md">
+    <section className="flex flex-col justify-between rounded-2xl border border-slate-700/40 bg-slate-800 p-5 shadow-md">
       {/* Header: nama unit + rata-rata waktu */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-emerald-300">{selected.unit_tampil}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-bold text-emerald-300 sm:text-lg leading-tight break-words">{selected.unit_tampil}</h2>
         <span
-          className={`text-[10px] font-semibold ${averageMinutes > 120 ? "text-rose-400" : "text-emerald-400"}`}
+          className={`text-[10px] font-semibold shrink-0 ${averageMinutes > 120 ? "text-rose-400" : "text-emerald-400"}`}
         >
           RATA-RATA WAKTU TUNGGU {averageLabel}
         </span>
       </div>
 
       {/* Statistik utama */}
-      <div className="mt-8 flex items-center gap-4">
+      <div className="mt-6 flex items-center gap-4">
         <UserRound
-          size={72}
+          size={64}
           strokeWidth={1.3}
           className={`shrink-0 ${overloaded ? "text-rose-300" : "text-emerald-300"}`}
         />
         <div>
-          <p className={`text-5xl font-bold leading-none ${overloaded ? "text-rose-300" : "text-emerald-300"}`}>
+          <p className={`text-4xl font-bold leading-none sm:text-5xl ${overloaded ? "text-rose-300" : "text-emerald-300"}`}>
             {selected.belum_dilayani}
           </p>
-          <p className="mt-1 text-xl text-slate-300">/ {selected.kapasitas} kursi</p>
+          <p className="mt-1 text-lg text-slate-300">/ {selected.kapasitas} kursi</p>
         </div>
       </div>
 
       <WaitTimeChart summary={selectedSummary ?? null} />
 
       {/* Status kapasitas */}
-      <div className={`mt-8 flex items-start gap-2 ${capacityFull ? "text-rose-300" : "text-emerald-300"}`}>
+      <div className={`mt-6 flex items-start gap-2 ${capacityFull ? "text-rose-300" : "text-emerald-300"}`}>
         <TriangleAlert size={18} className="mt-0.5 shrink-0" />
         <div className="flex flex-col gap-0.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.3em]">Kapasitas</p>

@@ -33,6 +33,7 @@ export default function DashboardPage() {
       if (json.success) {
         setData(json.data);
         setError(null);
+        setSelectedPoliId((prev) => prev ?? (json.data[0]?.unit_id ?? null));
       } else {
         setError(json.message || "Gagal memuat data");
       }
@@ -78,15 +79,8 @@ export default function DashboardPage() {
             <PatientMap
               units={data}
               selectedPoliId={selectedPoliId}
-              onSummariesChange={(summaries) => {
-                setPoliSummaries(summaries);
-                if (selectedPoliId === null && summaries.length > 0) {
-                  setSelectedPoliId(summaries[0].poli_id);
-                }
-              }}
-              onSelectedPoliChange={(summary) => {
-                setSelectedPoliId(summary?.poli_id ?? null);
-              }}
+              onSelectPoli={(poliId) => setSelectedPoliId(poliId)}
+              onSummariesChange={(summaries) => setPoliSummaries(summaries)}
             />
             <UnitCapacity
               units={data}

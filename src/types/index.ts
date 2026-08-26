@@ -47,4 +47,17 @@ export interface HistoryPerjalanan {
   "Total Waktu Tunggu": string;
 }
 
+export interface WatchlistPasien {
+  pasien_id: number;
+  no_rm: string;
+  nama: string;
+  nama_unit: string;
+  unit_alias: string;
+  tgl_act: string;
+  jam_daftar: string;
+  menit_tunggu: number;
+  waktu_tunggu_formatted: string;
+}
+
 export interface ApiResponse<T> { data: T; success: boolean; message?: string; }
+

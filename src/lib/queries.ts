@@ -190,3 +190,31 @@ export async function getHistoryPerjalanan(pasienId: number | string): Promise<i
   `, [pasienId]);
   return rows as import("@/types").HistoryPerjalanan[];
 }
+
+export async function getPriorityWatchlist(): Promise<import("@/types").WatchlistPasien[]> {
+  const [rows] = await pool.query(`
+    SELECT
+      bp.pasien_id,
+      mp.no_rm,
+      mp.nama,
+      mu.nama AS nama_unit,
+      COALESCE(NULLIF(TRIM(mu.unit_alias), ''), mu.nama) AS unit_alias,
+      bp.tgl_act,
+      DATE_FORMAT(bp.tgl_act, '%H:%i:%s') AS jam_daftar,
+      TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()) AS menit_tunggu,
+      CASE
+        WHEN TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()) >= 60
+        THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()) / 60), ' Jam ', MOD(TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()), 60), ' Menit')
+        ELSE CONCAT(TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()), ' Menit')
+      END AS waktu_tunggu_formatted
+    FROM db_rsd_soebandi_billing.b_pelayanan bp
+    JOIN db_rsd_soebandi_billing.b_ms_pasien mp ON bp.pasien_id = mp.id
+    JOIN db_rsd_soebandi_billing.b_ms_unit mu ON bp.unit_id = mu.id
+    WHERE DATE(bp.tgl) = CURDATE()
+      AND bp.dilayani = 0
+      AND TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()) >= 120
+    ORDER BY menit_tunggu DESC
+  `);
+  return rows as import("@/types").WatchlistPasien[];
+}
+
