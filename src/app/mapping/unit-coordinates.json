@@ -1,0 +1,164 @@
+[
+  {
+    "unit": "Poli Paru",
+    "floor": "1",
+    "lat": 883.78,
+    "lng": 633.24
+  },
+  {
+    "unit": "Poli Interna",
+    "floor": "1",
+    "lat": 861.08,
+    "lng": 742.59
+  },
+  {
+    "unit": "Poli Jantung",
+    "floor": "1",
+    "lat": 835.01,
+    "lng": 832.6
+  },
+  {
+    "unit": "Depo Farmasi 1",
+    "floor": "1",
+    "lat": 817.35,
+    "lng": 929.33
+  },
+  {
+    "unit": "Poli Saraf",
+    "floor": "1",
+    "lat": 787.92,
+    "lng": 1026.9
+  },
+  {
+    "unit": "Poli Kandungan",
+    "floor": "1",
+    "lat": 771.1,
+    "lng": 1123.63
+  },
+  {
+    "unit": "Hemodalisa",
+    "floor": "1",
+    "lat": 801.37,
+    "lng": 602.12
+  },
+  {
+    "unit": "Poli Bedah Ortopedi",
+    "floor": "1",
+    "lat": 784.56,
+    "lng": 673.62
+  },
+  {
+    "unit": "Poli Anastesi",
+    "floor": "1",
+    "lat": 742.51,
+    "lng": 819.14
+  },
+  {
+    "unit": "Poli Bedah Umum",
+    "floor": "1",
+    "lat": 733.26,
+    "lng": 890.63
+  },
+  {
+    "unit": "Poli Bedah Digestif",
+    "floor": "1",
+    "lat": 709.72,
+    "lng": 963.82
+  },
+  {
+    "unit": "Poli Bedah Syaraf",
+    "floor": "1",
+    "lat": 698.78,
+    "lng": 1030.27
+  },
+  {
+    "unit": "Poli Gizi",
+    "floor": "1",
+    "lat": 679.53,
+    "lng": 1104.66
+  },
+  {
+    "unit": "Poli MRI",
+    "floor": "1",
+    "lat": 854.18,
+    "lng": 526.78
+  },
+  {
+    "unit": "Poli Onkologi",
+    "floor": "1",
+    "lat": 685.89,
+    "lng": 1263.1
+  },
+  {
+    "unit": "Poli Platinum",
+    "floor": "1",
+    "lat": 663.97,
+    "lng": 1326.76
+  },
+  {
+    "unit": "Vaksin, Klinik",
+    "floor": "1",
+    "lat": 591.14,
+    "lng": 1276.54
+  },
+  {
+    "unit": "POLI THT",
+    "floor": "2",
+    "lat": 879.32,
+    "lng": 646.25
+  },
+  {
+    "unit": "POLI ANAK",
+    "floor": "2",
+    "lat": 854.32,
+    "lng": 776.2
+  },
+  {
+    "unit": "POLI MATA",
+    "floor": "2",
+    "lat": 827.82,
+    "lng": 877.67
+  },
+  {
+    "unit": "POLI BEDAH ANAK",
+    "floor": "2",
+    "lat": 751.82,
+    "lng": 789.2
+  },
+  {
+    "unit": "POLI BEDAH UROLGI",
+    "floor": "2",
+    "lat": 740.04,
+    "lng": 862.17
+  },
+  {
+    "unit": "POLI KULIT KELAMIN",
+    "floor": "2",
+    "lat": 802.06,
+    "lng": 995.13
+  },
+  {
+    "unit": "POLI BEDAH PLASTIK",
+    "floor": "2",
+    "lat": 707.56,
+    "lng": 980.13
+  },
+  {
+    "unit": "POLI KEMOTRAPI",
+    "floor": "2",
+    "lat": 702.06,
+    "lng": 1052.11
+  },
+  {
+    "unit": "POLI PSIKIATRI",
+    "floor": "2",
+    "lat": 774.56,
+    "lng": 1118.59
+  },
+  {
+    "unit": "POLI VCT",
+    "floor": "2",
+    "lat": 689.82,
+    "lng": 1104.09
+  }
+]
