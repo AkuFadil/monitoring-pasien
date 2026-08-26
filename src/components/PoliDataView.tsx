@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Building2, Search, Users, CheckCircle2, Clock3, Pill, Stethoscope, ChevronDown, ExternalLink } from "lucide-react";
+import Pagination from "@/components/Pagination";
 import type { DetailAntrian, PasienAntri } from "@/types";
 
 interface PoliDataViewProps {
@@ -11,6 +12,8 @@ interface PoliDataViewProps {
 }
 
 type TabStatus = "belum" | "sudah" | "semua";
+
+const PAGE_SIZE = 10;
 
 export default function PoliDataView({ data, eresepCounts = {} }: PoliDataViewProps) {
   // Otomatis pilih unit pertama yang ada antrian atau data[0]
@@ -21,6 +24,7 @@ export default function PoliDataView({ data, eresepCounts = {} }: PoliDataViewPr
 
   const [activeTab, setActiveTab] = useState<TabStatus>("belum");
   const [patientSearch, setPatientSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const [waitingPatients, setWaitingPatients] = useState<PasienAntri[]>([]);
   const [servedPatients, setServedPatients] = useState<PasienAntri[]>([]);
@@ -98,6 +102,14 @@ export default function PoliDataView({ data, eresepCounts = {} }: PoliDataViewPr
         (p.nama_peserta && p.nama_peserta.toLowerCase().includes(needle))
     );
   }, [activeTab, waitingPatients, servedPatients, patientSearch]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedUnitId, activeTab, patientSearch]);
+
+  const pageCount = Math.max(1, Math.ceil(displayedPatients.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paginatedPatients = displayedPatients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   if (!currentUnit) return null;
 
@@ -297,6 +309,7 @@ export default function PoliDataView({ data, eresepCounts = {} }: PoliDataViewPr
               Tidak ada pasien dalam kategori ini.
             </div>
           ) : (
+            <>
             <div className="overflow-x-auto rounded-xl border border-slate-700/70">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-900 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700">
@@ -310,13 +323,13 @@ export default function PoliDataView({ data, eresepCounts = {} }: PoliDataViewPr
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 bg-slate-900/40">
-                  {displayedPatients.map((p, index) => (
+                  {paginatedPatients.map((p, index) => (
                     <tr
                       key={`${p.no_rm}-${index}`}
                       className="hover:bg-slate-700/30 transition-colors"
                     >
                       <td className="px-4 py-3 text-center font-semibold text-slate-500">
-                        {index + 1}
+                        {(currentPage - 1) * PAGE_SIZE + index + 1}
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-cyan-400">
                         <Link href={`/pasien/${p.pasien_id}`} className="hover:underline">
@@ -355,10 +368,11 @@ export default function PoliDataView({ data, eresepCounts = {} }: PoliDataViewPr
                 </tbody>
               </table>
             </div>
+            <Pagination page={currentPage} pageSize={PAGE_SIZE} total={displayedPatients.length} onPageChange={setPage} />
+            </>
           )}
         </div>
       </div>
     </div>
   );
 }
-

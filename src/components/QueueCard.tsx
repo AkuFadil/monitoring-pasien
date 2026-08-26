@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Pagination from "@/components/Pagination";
 import type { DetailAntrian, HistoryPerjalanan, PasienAntri } from "@/types";
 
 interface QueueCardProps {
@@ -10,11 +11,14 @@ interface QueueCardProps {
 }
 type StatusTab = "belum" | "sudah";
 
+const PAGE_SIZE = 10;
+
 export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
   const [activeTab, setActiveTab] = useState<StatusTab | null>(null);
   const [patients, setPatients] = useState<PasienAntri[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [patientError, setPatientError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const [sudahDilayani, setSudahDilayani] = useState(antrian.sudah_dilayani);
   const [belumDilayani, setBelumDilayani] = useState(antrian.belum_dilayani);
   const prosesResep = eresepCount?.proses ?? 0;
@@ -27,6 +31,7 @@ export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
 
   async function showPatients(tab: StatusTab) {
     setActiveTab(tab);
+    setPage(1);
     setLoadingPatients(true);
     setPatientError(null);
     try {
@@ -43,6 +48,10 @@ export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
       setLoadingPatients(false);
     }
   }
+
+  const pageCount = Math.max(1, Math.ceil(patients.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paginatedPatients = patients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700/40 shadow-md flex flex-col transition-all duration-300 hover:shadow-xl hover:border-slate-600">
@@ -95,9 +104,9 @@ export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {patients.map((p, i) => (
+                  {paginatedPatients.map((p, i) => (
                     <tr key={`${p.no_rm}-${i}`} className="hover:bg-slate-800/70">
-                      <td className="px-3 py-1.5 text-slate-500">{i + 1}</td>
+                      <td className="px-3 py-1.5 text-slate-500">{(currentPage - 1) * PAGE_SIZE + i + 1}</td>
                       <td className="px-3 py-1.5 text-cyan-400 font-mono text-[11px]">
                         <Link href={`/pasien/${p.pasien_id}`} className="hover:underline">
                           {p.no_rm}
@@ -113,6 +122,7 @@ export default function QueueCard({ antrian, eresepCount }: QueueCardProps) {
                   ))}
                 </tbody>
               </table>
+              <Pagination page={currentPage} pageSize={PAGE_SIZE} total={patients.length} onPageChange={setPage} />
             </div>
           )}
         </section>

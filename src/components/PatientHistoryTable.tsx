@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronDown, Clock3, Pill, Search, Stethoscope } from "lucide-react";
+import Pagination from "@/components/Pagination";
 import type { DetailAntrian, HistoryPerjalanan, PasienAntri } from "@/types";
 
 interface PatientHistoryTableProps {
@@ -10,6 +11,8 @@ interface PatientHistoryTableProps {
 }
 
 type HistoryStatus = "belum" | "selesai" | "resep" | "obat";
+
+const PAGE_SIZE = 10;
 
 interface HistoryRow {
   patient: PasienAntri;
@@ -76,6 +79,7 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
   const [selectedUnitId, setSelectedUnitId] = useState(units[0]?.unit_id ?? 0);
   const [activeStatus, setActiveStatus] = useState<HistoryStatus>("belum");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +142,14 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
     const matchesSearch = !needle || patient.nama.toLowerCase().includes(needle) || patient.no_rm.toLowerCase().includes(needle);
     return matchesSearch && getStatus(history, served) === activeStatus;
   }), [rows, search, activeStatus]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedUnitId, activeStatus, search]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paginatedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   if (!selectedUnit) return null;
 
@@ -222,7 +234,7 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/60">
-                {filteredRows.map(({ patient, history }) => (
+                {paginatedRows.map(({ patient, history }) => (
                   <tr
                     key={patient.pasien_id}
                     onClick={() => router.push(`/pasien/${patient.pasien_id}`)}
@@ -261,11 +273,10 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
                 ))}
               </tbody>
             </table>
+            <Pagination page={currentPage} pageSize={PAGE_SIZE} total={filteredRows.length} onPageChange={setPage} />
           </div>
         )}
       </div>
     </section>
   );
 }
-
-

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
+import Pagination from "@/components/Pagination";
 import {
   ShieldAlert,
   ClockAlert,
@@ -16,6 +17,8 @@ import {
 } from "lucide-react";
 import type { WatchlistPasien } from "@/types";
 
+const PAGE_SIZE = 10;
+
 export default function PriorityWatchlistPage() {
   const [watchlist, setWatchlist] = useState<WatchlistPasien[]>([]);
   const [count120, setCount120] = useState(0);
@@ -25,6 +28,7 @@ export default function PriorityWatchlistPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMode, setFilterMode] = useState<"all" | "kritis">("all");
+  const [page, setPage] = useState(1);
 
   const fetchWatchlistData = async () => {
     setLoading(true);
@@ -74,6 +78,14 @@ export default function PriorityWatchlistPage() {
       );
     });
   }, [watchlist, filterMode, searchTerm]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterMode, searchTerm]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredPatients.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paginatedPatients = filteredPatients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -231,6 +243,7 @@ export default function PriorityWatchlistPage() {
             </p>
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-xl border border-slate-700/60 bg-slate-900/60">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-700 bg-slate-900 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
@@ -245,7 +258,7 @@ export default function PriorityWatchlistPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 font-medium">
-                {filteredPatients.map((p, idx) => {
+                {paginatedPatients.map((p, idx) => {
                   const isKritis = p.menit_tunggu >= 180;
                   return (
                     <tr
@@ -253,7 +266,7 @@ export default function PriorityWatchlistPage() {
                       className="hover:bg-slate-800/60 transition-colors"
                     >
                       <td className="px-4 py-3.5 text-center text-slate-500 font-mono">
-                        {idx + 1}
+                        {(currentPage - 1) * PAGE_SIZE + idx + 1}
                       </td>
 
                       <td className="px-4 py-3.5">
@@ -314,7 +327,9 @@ export default function PriorityWatchlistPage() {
                 })}
               </tbody>
             </table>
+            <Pagination page={currentPage} pageSize={PAGE_SIZE} total={filteredPatients.length} onPageChange={setPage} />
           </div>
+          </>
         )}
       </div>
     </div>
