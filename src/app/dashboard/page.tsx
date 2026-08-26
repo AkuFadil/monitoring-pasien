@@ -92,9 +92,6 @@ export default function DashboardPage() {
               units={data}
               summaries={poliSummaries}
               selectedPoliId={selectedPoliId}
-              onSelectedUnitChange={(unitId) => {
-                setSelectedPoliId(unitId);
-              }}
             />
           </div>
           <PatientHistoryTable units={data} />

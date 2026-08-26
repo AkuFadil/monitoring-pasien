@@ -102,6 +102,8 @@ export default function PatientMap({
   floorRef.current = floor;
   const summariesRef = useRef(summaries);
   summariesRef.current = summaries;
+  const selectedPoliRef = useRef(selectedPoli);
+  selectedPoliRef.current = selectedPoli;
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +149,7 @@ export default function PatientMap({
       const values = [summary?.waiting_0_30 ?? 0, summary?.waiting_30_60 ?? 0, summary?.waiting_60_120 ?? 0, summary?.waiting_120_plus ?? 0];
       const sizes = values.map((value) => Math.min(22, 7 + Math.log2(value + 1) * 3));
       const colors = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
-      const html = `<div class=\"poli-marker ${selectedPoli === unit.unit_id ? "poli-marker-selected" : ""}\"><strong>${unit.unit_tampil}</strong><span class=\"poli-marker-total\">${summary?.belum_diperiksa ?? "…"}</span><div class=\"poli-marker-dots\">${colors.map((color, i) => `<i style=\"background:${color};width:${sizes[i]}px;height:${sizes[i]}px\"></i>`).join("")}</div></div>`;
+      const html = `<div class=\"poli-marker ${selectedPoliRef.current === unit.unit_id ? "poli-marker-selected" : ""}\"><strong>${unit.unit_tampil}</strong><span class=\"poli-marker-total\">${summary?.belum_diperiksa ?? "…"}</span><div class=\"poli-marker-dots\">${colors.map((color, i) => `<i style=\"background:${color};width:${sizes[i]}px;height:${sizes[i]}px\"></i>`).join("")}</div></div>`;
       const marker = L.marker([location.lat, location.lng], { icon: L.divIcon({ className: "", html, iconSize: [130, 58], iconAnchor: [65, 29] }) }).addTo(map);
       marker.on("click", () => setSelectedPoli(unit.unit_id));
       marker.bindTooltip(unit.unit_tampil, { direction: "top" });
@@ -155,7 +157,7 @@ export default function PatientMap({
     });
     markersRef.current = newMarkers;
     map.invalidateSize();
-  }, [selectedPoli]);
+  }, []);
 
   useEffect(() => { renderPins(); }, [summaries, floor, selectedPoli, renderPins]);
 
@@ -219,7 +221,7 @@ export default function PatientMap({
       mapRef.current = null;
       markersRef.current = [];
     };
-  }, [renderPins]);
+  }, []);
 
   // Ganti denah secara sinkron setelah lantai dipilih; tidak ada import async di sini.
   useEffect(() => {

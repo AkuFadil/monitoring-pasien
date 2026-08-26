@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { SlidersHorizontal, UserRound, TriangleAlert } from "lucide-react";
+import { useMemo } from "react";
+import { UserRound, TriangleAlert } from "lucide-react";
 import type { DetailAntrian } from "@/types";
 import WaitTimeChart from "./WaitTimeChart";
 
@@ -9,44 +9,12 @@ interface UnitCapacityProps {
   units: DetailAntrian[];
   summaries?: import("./PatientMap").PoliSummary[];
   selectedPoliId?: number | null;
-  onSelectedUnitChange?: (unitId: number) => void;
 }
 
-/** Palet warna unik untuk setiap poli — pakai inline style agar pasti jalan. */
-const POLI_COLORS_HEX = [
-  "#22d3ee", // cyan
-  "#fbbf24", // amber
-  "#fb7185", // rose
-  "#34d399", // emerald
-  "#a78bfa", // violet
-  "#fb923c", // orange
-  "#38bdf8", // sky
-  "#f472b6", // pink
-  "#2dd4bf", // teal
-  "#facc15", // yellow
-  "#818cf8", // indigo
-  "#f87171", // red
-  "#a3e635", // lime
-  "#e879f9", // fuchsia
-  "#60a5fa", // blue
-  "#4ade80", // green
-  "#c084fc", // purple
-  "#94a3b8", // slate
-  "#67e8f9", // cyan-300
-  "#fcd34d", // amber-300
-];
-
 /** Panel kanan: nama unit, jumlah antrean, dan status kapasitas. */
-export default function UnitCapacity({ units, summaries = [], selectedPoliId, onSelectedUnitChange }: UnitCapacityProps) {
-  const [selectedId, setSelectedId] = useState<number | null>(units[0]?.unit_id ?? null);
-  const [filterOpen, setFilterOpen] = useState(false);
-
-  // Sinkronisasi selectedId dari marker denah / parent
-  useEffect(() => {
-    if (selectedPoliId != null) {
-      setSelectedId(selectedPoliId);
-    }
-  }, [selectedPoliId]);
+export default function UnitCapacity({ units, summaries = [], selectedPoliId }: UnitCapacityProps) {
+  // Poli hanya berubah ketika marker pada denah diklik.
+  const selectedId = selectedPoliId ?? units[0]?.unit_id ?? null;
 
   const selected = useMemo(
     () => units.find((unit) => unit.unit_id === selectedId) ?? units[0],
@@ -74,61 +42,16 @@ export default function UnitCapacity({ units, summaries = [], selectedPoliId, on
     : `${averageMinutes} MENIT`;
 
   return (
-    <section className="relative rounded-2xl border border-slate-700/40 bg-slate-800 p-5 shadow-md">
-      {/* Header: nama unit + filter */}
+    <section className="rounded-2xl border border-slate-700/40 bg-slate-800 p-5 shadow-md">
+      {/* Header: nama unit + rata-rata waktu */}
       <div className="flex items-center justify-between gap-3">
-        {(() => {
-          const colorIdx = units.findIndex((u) => u.unit_id === selected.unit_id);
-          const hex = POLI_COLORS_HEX[colorIdx >= 0 ? colorIdx % POLI_COLORS_HEX.length : 0];
-          return <h2 className="text-lg font-bold" style={{ color: hex }}>{selected.unit_tampil}</h2>;
-        })()}
-        <div className="flex items-center gap-3">
-          <span
-            className={`text-[10px] font-semibold ${averageMinutes > 120 ? "text-rose-400" : "text-emerald-400"}`}
-          >
-            RATA-RATA WAKTU TUNGGU {averageLabel}
-          </span>
-          <button
-            type="button"
-            onClick={() => setFilterOpen((prev) => !prev)}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white"
-            aria-label="Filter unit"
-          >
-            <SlidersHorizontal size={22} />
-          </button>
-        </div>
+        <h2 className="text-lg font-bold text-emerald-300">{selected.unit_tampil}</h2>
+        <span
+          className={`text-[10px] font-semibold ${averageMinutes > 120 ? "text-rose-400" : "text-emerald-400"}`}
+        >
+          RATA-RATA WAKTU TUNGGU {averageLabel}
+        </span>
       </div>
-
-      {/* Dropdown filter unit */}
-      {filterOpen && (
-        <div className="absolute right-6 top-20 z-10 max-h-64 w-64 overflow-y-auto rounded-xl border border-slate-600 bg-slate-900 p-2 shadow-xl">
-          <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Pilih unit
-          </p>
-          {units.map((unit, uIdx) => {
-            const hex = POLI_COLORS_HEX[uIdx % POLI_COLORS_HEX.length];
-            return (
-              <button
-                key={unit.unit_id}
-                type="button"
-                onClick={() => {
-                  setSelectedId(unit.unit_id);
-                  onSelectedUnitChange?.(unit.unit_id);
-                  setFilterOpen(false);
-                }}
-                className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                  unit.unit_id === selected.unit_id
-                    ? "bg-slate-700/50"
-                    : "hover:bg-slate-800"
-                }`}
-                style={{ color: hex }}
-              >
-              {unit.unit_tampil}
-            </button>
-          );
-          })}
-        </div>
-      )}
 
       {/* Statistik utama */}
       <div className="mt-8 flex items-center gap-4">
