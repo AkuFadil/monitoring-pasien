@@ -90,6 +90,58 @@ export async function getHistoryPasien(pasienId: number | string): Promise<Histo
 }
 
 /** Query history lengkap dari api.js, dipisahkan agar query history lama tetap utuh. */
+export async function getHistoryPerjalananByUnit(unitId: number | string): Promise<(import("@/types").HistoryPerjalanan & { pasien_id: number; dilayani: number })[]> {
+  const [rows] = await pool.query(`
+    SELECT
+      mp.id AS pasien_id,
+      MAX(bp.dilayani) AS dilayani,
+      mp.nama AS \`Nama Pasien\`,
+      mp.no_rm AS \`No. RM\`,
+      DATE_FORMAT(MIN(bp.tgl), '%d-%m-%Y') AS Tanggal,
+      GROUP_CONCAT(
+        CAST(CONCAT(
+          COALESCE(mu.unit_alias, mu.nama), ' (Daftar: ',
+          COALESCE(DATE_FORMAT(bp.tgl_act, '%H:%i'), '-'),
+          ' | Periksa: ', COALESCE(DATE_FORMAT(bp.tgl_act1, '%H:%i'), '-'),
+          '-', COALESCE(DATE_FORMAT(bp.tgl_act2, '%H:%i'), '-'), ')'
+        ) AS CHAR)
+        ORDER BY bp.tgl_act ASC SEPARATOR ' - '
+      ) AS \`Rincian Pergerakan Poli\`,
+      DATE_FORMAT(MIN(bp.tgl_act), '%H:%i:%s') AS \`Jam Daftar Awal\`,
+      DATE_FORMAT(MAX(bp.tgl_act2), '%H:%i:%s') AS \`Selesai Periksa Terakhir\`,
+      DATE_FORMAT(MIN(ac.validasi), '%H:%i:%s') AS \`Proses Resep\`,
+      DATE_FORMAT(MAX(ac.penyerahan), '%H:%i:%s') AS \`Penyerahan Obat\`,
+      CASE
+        WHEN SUM(CASE WHEN bp.tgl_act2 IS NULL THEN 1 ELSE 0 END) > 0 AND MAX(ac.penyerahan) IS NULL THEN 'Masih Dalam Process (Poli)'
+        WHEN SUM(CASE WHEN bp.tgl_act2 IS NULL THEN 1 ELSE 0 END) > 0 AND (MIN(ac.validasi) IS NOT NULL OR MAX(ac.penyerahan) IS NOT NULL) THEN 'Anomali (Poli Belum Selesai)'
+        WHEN MIN(ac.validasi) IS NOT NULL AND MAX(ac.penyerahan) IS NULL THEN 'Masih Dalam Process (Farmasi)'
+        WHEN MAX(ac.penyerahan) IS NOT NULL THEN
+          CASE WHEN TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(ac.penyerahan)) >= 60
+            THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(ac.penyerahan)) / 60), ' Jam ', MOD(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(ac.penyerahan)), 60), ' Menit')
+            ELSE CONCAT(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(ac.penyerahan)), ' Menit') END
+        WHEN SUM(CASE WHEN bp.tgl_act2 IS NULL THEN 1 ELSE 0 END) = 0 AND MIN(ac.validasi) IS NULL THEN
+          CASE WHEN TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)) >= 60
+            THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)) / 60), ' Jam ', MOD(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)), 60), ' Menit (Non-Resep)')
+            ELSE CONCAT(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)), ' Menit (Non-Resep)') END
+        ELSE 'Anomali Data'
+      END AS \`Total Waktu Tunggu\`
+    FROM db_rsd_soebandi_billing.b_pelayanan bp
+    JOIN db_rsd_soebandi_billing.b_ms_pasien mp ON mp.id = bp.pasien_id
+    JOIN db_rsd_soebandi_billing.b_ms_unit mu ON mu.id = bp.unit_id
+    LEFT JOIN (
+      SELECT pelayanan_id, MIN(tgl_proses) AS validasi, MIN(tgl_selesai) AS penyerahan
+      FROM db_antrian.b_antrian_cekin
+      WHERE tgl_proses >= CURRENT_DATE()
+      GROUP BY pelayanan_id
+    ) ac ON ac.pelayanan_id = bp.id
+    WHERE bp.tgl >= CURRENT_DATE() AND bp.tgl < CURRENT_DATE() + INTERVAL 1 DAY
+      AND bp.unit_id = ?
+    GROUP BY mp.id, mp.nama, mp.no_rm
+    ORDER BY MIN(bp.tgl_act) ASC
+  `, [unitId]);
+  return rows as (import("@/types").HistoryPerjalanan & { pasien_id: number; dilayani: number })[];
+}
+
 export async function getHistoryPerjalanan(pasienId: number | string): Promise<import("@/types").HistoryPerjalanan[]> {
   const [rows] = await pool.query(`
     SELECT

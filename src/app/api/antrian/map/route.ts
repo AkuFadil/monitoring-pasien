@@ -8,6 +8,12 @@ export const dynamic = "force-dynamic";
 interface MapPatient extends PasienAntri {
   unit_id: number;
   total_waktu_tunggu: string | null;
+  selesai_periksa: string | null;
+}
+
+interface MapUnitPatients {
+  active: MapPatient[];
+  completed: MapPatient[];
 }
 
 /** GET /api/antrian/map?units=19,248,18 */
@@ -26,23 +32,28 @@ export async function GET(request: NextRequest) {
       const placeholders = unitIds.map(() => "?").join(",");
       const [rows] = await pool.query(
         `SELECT bp.unit_id, bp.pasien_id, b.no_rm, b.nama, c.nama_peserta,
+                MAX(bp.tgl_act2) AS selesai_periksa,
                 CASE
-                  WHEN bp.tgl_act2 IS NOT NULL THEN
-                    CASE WHEN TIMESTAMPDIFF(MINUTE, bp.tgl_act, bp.tgl_act2) >= 60
-                      THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE, bp.tgl_act, bp.tgl_act2) / 60), ' Jam ', MOD(TIMESTAMPDIFF(MINUTE, bp.tgl_act, bp.tgl_act2), 60), ' Menit')
-                      ELSE CONCAT(TIMESTAMPDIFF(MINUTE, bp.tgl_act, bp.tgl_act2), ' Menit') END
+                  WHEN MAX(bp.tgl_act2) IS NOT NULL THEN
+                    CASE WHEN TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)) >= 60
+                      THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)) / 60), ' Jam ', MOD(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)), 60), ' Menit')
+                      ELSE CONCAT(TIMESTAMPDIFF(MINUTE, MIN(bp.tgl_act), MAX(bp.tgl_act2)), ' Menit') END
                   ELSE NULL
                 END AS total_waktu_tunggu
          FROM db_rsd_soebandi_billing.b_pelayanan bp
          JOIN db_rsd_soebandi_billing.b_ms_pasien b ON bp.pasien_id = b.id
          JOIN db_rsd_soebandi_billing.b_kunjungan c ON bp.pasien_id = c.pasien_id AND DATE(c.tgl) = CURDATE()
          WHERE DATE(bp.tgl) = CURDATE() AND bp.unit_id IN (${placeholders})
-         ORDER BY bp.unit_id, b.nama ASC`,
+         GROUP BY bp.unit_id, bp.pasien_id, b.no_rm, b.nama, c.nama_peserta
+         ORDER BY bp.unit_id, b.nama ASC`, 
         unitIds,
       );
 
-      const grouped: Record<number, MapPatient[]> = {};
-      for (const row of rows as MapPatient[]) (grouped[row.unit_id] ??= []).push(row);
+      const grouped: Record<number, MapUnitPatients> = {};
+      for (const row of rows as MapPatient[]) {
+        const patients = (grouped[row.unit_id] ??= { active: [], completed: [] });
+        (row.selesai_periksa ? patients.completed : patients.active).push(row);
+      }
       return grouped;
     });
 

@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SlidersHorizontal, UserRound, TriangleAlert } from "lucide-react";
 import type { DetailAntrian } from "@/types";
 import WaitTimeChart from "./WaitTimeChart";
 
 interface UnitCapacityProps {
   units: DetailAntrian[];
+  summaries?: import("./PatientMap").PoliSummary[];
+  selectedPoliId?: number | null;
+  onSelectedUnitChange?: (unitId: number) => void;
 }
 
 /** Palet warna unik untuk setiap poli — pakai inline style agar pasti jalan. */
@@ -34,12 +37,25 @@ const POLI_COLORS_HEX = [
 ];
 
 /** Panel kanan: nama unit, jumlah antrean, dan status kapasitas. */
-export default function UnitCapacity({ units }: UnitCapacityProps) {
+export default function UnitCapacity({ units, summaries = [], selectedPoliId, onSelectedUnitChange }: UnitCapacityProps) {
   const [selectedId, setSelectedId] = useState<number | null>(units[0]?.unit_id ?? null);
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Sinkronisasi selectedId dari marker denah / parent
+  useEffect(() => {
+    if (selectedPoliId != null) {
+      setSelectedId(selectedPoliId);
+    }
+  }, [selectedPoliId]);
+
   const selected = useMemo(
     () => units.find((unit) => unit.unit_id === selectedId) ?? units[0],
     [selectedId, units],
+  );
+
+  const selectedSummary = useMemo(
+    () => summaries.find((s) => s.poli_id === selectedId) ?? null,
+    [summaries, selectedId],
   );
 
   if (!selected) {
@@ -52,6 +68,10 @@ export default function UnitCapacity({ units }: UnitCapacityProps) {
 
   const capacityFull = selected.belum_dilayani >= selected.kapasitas * 0.5;
   const overloaded = selected.belum_dilayani > selected.kapasitas;
+  const averageMinutes = selectedSummary?.avg_waiting_minutes ?? 0;
+  const averageLabel = averageMinutes >= 60
+    ? `${Math.floor(averageMinutes / 60)} JAM ${averageMinutes % 60} MENIT`
+    : `${averageMinutes} MENIT`;
 
   return (
     <section className="relative rounded-2xl border border-slate-700/40 bg-slate-800 p-5 shadow-md">
@@ -63,7 +83,11 @@ export default function UnitCapacity({ units }: UnitCapacityProps) {
           return <h2 className="text-lg font-bold" style={{ color: hex }}>{selected.unit_tampil}</h2>;
         })()}
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-semibold text-rose-400">RATA-RATA PELAYANAN POLI 1.5 JAM</span>
+          <span
+            className={`text-[10px] font-semibold ${averageMinutes > 120 ? "text-rose-400" : "text-emerald-400"}`}
+          >
+            RATA-RATA WAKTU TUNGGU {averageLabel}
+          </span>
           <button
             type="button"
             onClick={() => setFilterOpen((prev) => !prev)}
@@ -89,6 +113,7 @@ export default function UnitCapacity({ units }: UnitCapacityProps) {
                 type="button"
                 onClick={() => {
                   setSelectedId(unit.unit_id);
+                  onSelectedUnitChange?.(unit.unit_id);
                   setFilterOpen(false);
                 }}
                 className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
@@ -120,7 +145,7 @@ export default function UnitCapacity({ units }: UnitCapacityProps) {
         </div>
       </div>
 
-      <WaitTimeChart unitId={selected.unit_id} />
+      <WaitTimeChart summary={selectedSummary ?? null} />
 
       {/* Status kapasitas */}
       <div className={`mt-8 flex items-start gap-2 ${capacityFull ? "text-rose-300" : "text-emerald-300"}`}>

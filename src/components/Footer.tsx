@@ -19,7 +19,7 @@ export default function Footer({ onRefresh }: { onRefresh?: () => void }) {
       </div>
       {/* Copyright */}
         <div className="flex items-center justify-center">
-          <p className="text-sm text-slate-500 px-2">
+          <p className="text-[14px] text-slate-500 px-2">
             &copy; {new Date().getFullYear()} Copyright &mdash; PDE Dr. Soebandi Jember All Right Reserved
           </p>
         </div>

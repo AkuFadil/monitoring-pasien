@@ -12,9 +12,14 @@ type HistoryStatus = "belum" | "selesai" | "resep" | "obat";
 
 interface HistoryRow {
   patient: PasienAntri;
-  history: HistoryPerjalanan | null;
+  history: HistoryPerjalanan;
   served: boolean;
 }
+
+type UnitHistoryRecord = HistoryPerjalanan & {
+  pasien_id: number;
+  dilayani: number;
+};
 
 const STATUS_CONFIG: Record<HistoryStatus, { label: string; color: string; icon: typeof Clock3 }> = {
   belum: { label: "Belum Diperiksa", color: "rose", icon: Clock3 },
@@ -45,9 +50,7 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
   const [selectedUnitId, setSelectedUnitId] = useState(units[0]?.unit_id ?? 0);
   const [activeStatus, setActiveStatus] = useState<HistoryStatus>("belum");
   const [search, setSearch] = useState("");
-  const [patients, setPatients] = useState<PasienAntri[]>([]);
-  const [histories, setHistories] = useState<Record<number, HistoryPerjalanan | null>>({});
-  const [servedIdSet, setServedIdSet] = useState<Set<number>>(new Set());
+  const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,39 +71,31 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
       setLoading(true);
       setError(null);
       try {
-        const [waitingResponse, servedResponse] = await Promise.all([
-          fetch(`/api/antrian?unit_id=${unitId}&dilayani=0`, { cache: "no-store" }),
-          fetch(`/api/antrian?unit_id=${unitId}&dilayani=1`, { cache: "no-store" }),
-        ]);
-        if (!waitingResponse.ok || !servedResponse.ok) throw new Error("Gagal mengambil pasien poli");
-
-        const [waitingJson, servedJson] = await Promise.all([
-          waitingResponse.json(),
-          servedResponse.json(),
-        ]);
-        const waitingPatients = (waitingJson.data ?? []) as PasienAntri[];
-        const servedPatients = (servedJson.data ?? []) as PasienAntri[];
-        const servedIds = new Set(servedPatients.map((p) => p.pasien_id));
-        const queuePatients = [...waitingPatients, ...servedPatients];
-
-        const historyResponse = await fetch(
-          `/api/history/batch?ids=${queuePatients.map((p) => p.pasien_id).join(",")}`,
+        const response = await fetch(
+          `/api/history/unit?unit_id=${unitId}`,
           { cache: "no-store" },
         );
-        if (!historyResponse.ok) throw new Error("Gagal mengambil history pasien");
-        const historyJson = await historyResponse.json();
-        const historyMap = (historyJson.data ?? {}) as Record<number, HistoryPerjalanan | null>;
+        if (!response.ok) throw new Error("Gagal mengambil data histori poli");
+        const json = await response.json();
+        const records = (json.data ?? []) as UnitHistoryRecord[];
 
         if (!cancelled) {
-          setPatients(queuePatients);
-          setHistories(historyMap);
-          setServedIdSet(servedIds);
+          setRows(
+            records.map((rec) => ({
+              patient: {
+                pasien_id: rec.pasien_id,
+                nama: rec["Nama Pasien"],
+                no_rm: rec["No. RM"],
+                nama_peserta: "",
+              } as PasienAntri,
+              history: rec,
+              served: rec.dilayani === 1,
+            })),
+          );
         }
       } catch {
         if (!cancelled) {
-          setPatients([]);
-          setHistories({});
-          setServedIdSet(new Set());
+          setRows([]);
           setError("Data histori pasien tidak dapat dimuat");
         }
       } finally {
@@ -112,13 +107,11 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
     return () => { cancelled = true; };
   }, [selectedUnitId]);
 
-  const rows = useMemo<HistoryRow[]>(() => patients
-    .map((patient) => ({ patient, history: histories[patient.pasien_id] ?? null, served: servedIdSet.has(patient.pasien_id) }))
-    .filter(({ patient, history, served }) => {
-      const needle = search.trim().toLowerCase();
-      const matchesSearch = !needle || patient.nama.toLowerCase().includes(needle) || patient.no_rm.toLowerCase().includes(needle);
-      return matchesSearch && getStatus(history, served) === activeStatus;
-    }), [patients, histories, search, activeStatus, servedIdSet]);
+  const filteredRows = useMemo<HistoryRow[]>(() => rows.filter(({ patient, history, served }) => {
+    const needle = search.trim().toLowerCase();
+    const matchesSearch = !needle || patient.nama.toLowerCase().includes(needle) || patient.no_rm.toLowerCase().includes(needle);
+    return matchesSearch && getStatus(history, served) === activeStatus;
+  }), [rows, search, activeStatus]);
 
   if (!selectedUnit) return null;
 
@@ -153,12 +146,12 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
       </div>
 
       <div className="p-3 sm:p-5">
-        <div className="mb-3 flex items-center justify-between text-xs text-slate-400"><span>Unit aktif: <strong className="text-slate-200">{selectedUnit.unit_tampil}</strong></span><span>{rows.length} pasien</span></div>
-        {loading ? <div className="flex items-center justify-center py-14 text-sm text-slate-400"><span className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />Memuat histori...</div> : error ? <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-5 text-center text-sm text-rose-300">{error}</p> : rows.length === 0 ? <p className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">Belum ada pasien pada kategori ini.</p> : (
+        <div className="mb-3 flex items-center justify-between text-xs text-slate-400"><span>Unit aktif: <strong className="text-slate-200">{selectedUnit.unit_tampil}</strong></span><span>{filteredRows.length} pasien</span></div>
+        {loading ? <div className="flex items-center justify-center py-14 text-sm text-slate-400"><span className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />Memuat histori...</div> : error ? <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-5 text-center text-sm text-rose-300">{error}</p> : filteredRows.length === 0 ? <p className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">Belum ada pasien pada kategori ini.</p> : (
           <div className="overflow-x-auto rounded-xl border border-slate-700/80">
             <table className="min-w-[760px] w-full text-left text-xs">
               <thead className="bg-slate-900/90 text-[10px] uppercase tracking-[0.14em] text-slate-400"><tr><th className="px-3 py-3 sm:px-4">No RM</th><th className="px-3 py-3 sm:px-4">Nama Pasien</th><th className="min-w-64 px-3 py-3 sm:px-4">Rincian Pergerakan di Poli</th><th className="px-3 py-3 sm:px-4">Waktu Status</th><th className="px-3 py-3 sm:px-4">Total Waktu Tunggu</th></tr></thead>
-              <tbody className="divide-y divide-slate-700/70">{rows.map(({ patient, history }) => <tr key={patient.pasien_id} className="transition hover:bg-slate-700/25"><td className="whitespace-nowrap px-3 py-3 font-mono text-blue-300 sm:px-4">{patient.no_rm}</td><td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-200 sm:px-4">{patient.nama}</td><td className="max-w-md px-3 py-3 leading-5 text-slate-400 sm:px-4">{history?.["Rincian Pergerakan Poli"] ?? `${selectedUnit.unit_tampil} — menunggu pemeriksaan`}</td><td className="whitespace-nowrap px-3 py-3 text-slate-300 sm:px-4">{activeStatus === "belum" ? displayTime(history?.["Jam Daftar Awal"]) : activeStatus === "selesai" ? displayTime(history?.["Selesai Periksa Terakhir"]) : activeStatus === "resep" ? displayTime(history?.["Proses Resep"]) : displayTime(history?.["Penyerahan Obat"])}</td><td className="whitespace-nowrap px-3 py-3 sm:px-4"><span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold ${activeStatus === "belum" || activeStatus === "resep" ? "bg-rose-400/15 text-rose-300" : "bg-emerald-400/15 text-emerald-300"}`}>{history?.["Total Waktu Tunggu"] ?? "—"}</span></td></tr>)}</tbody>
+              <tbody className="divide-y divide-slate-700/70">{filteredRows.map(({ patient, history }) => <tr key={patient.pasien_id} className="transition hover:bg-slate-700/25"><td className="whitespace-nowrap px-3 py-3 font-mono text-blue-300 sm:px-4">{patient.no_rm}</td><td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-200 sm:px-4">{patient.nama}</td><td className="max-w-md px-3 py-3 leading-5 text-slate-400 sm:px-4">{history["Rincian Pergerakan Poli"] ?? `${selectedUnit.unit_tampil} — menunggu pemeriksaan`}</td><td className="whitespace-nowrap px-3 py-3 text-slate-300 sm:px-4">{activeStatus === "belum" ? displayTime(history["Jam Daftar Awal"]) : activeStatus === "selesai" ? displayTime(history["Selesai Periksa Terakhir"]) : activeStatus === "resep" ? displayTime(history["Proses Resep"]) : displayTime(history["Penyerahan Obat"])}</td><td className="whitespace-nowrap px-3 py-3 sm:px-4"><span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold ${activeStatus === "belum" || activeStatus === "resep" ? "bg-rose-400/15 text-rose-300" : "bg-emerald-400/15 text-emerald-300"}`}>{history["Total Waktu Tunggu"]}</span></td></tr>)}</tbody>
             </table>
           </div>
         )}

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
 import Topbar from "@/components/Topbar";
 import SummaryCards from "@/components/SummaryCards";
-import PatientMap from "@/components/PatientMap";
+import PatientMap, { type PoliSummary } from "@/components/PatientMap";
 import PatientHistoryTable from "@/components/PatientHistoryTable";
 import UnitCapacity from "@/components/UnitCapacity";
 import Footer from "@/components/Footer";
@@ -19,6 +19,8 @@ export default function DashboardPage() {
   const [data, setData] = useState<DetailAntrian[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [poliSummaries, setPoliSummaries] = useState<PoliSummary[]>([]);
+  const [selectedPoliId, setSelectedPoliId] = useState<number | null>(null);
   const requestInFlight = useState({ current: false })[0];
 
   const fetchData = useCallback(async () => {
@@ -73,8 +75,27 @@ export default function DashboardPage() {
       {!loading && !error && data.length > 0 && (
         <>
           <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
-            <PatientMap units={data} />
-            <UnitCapacity units={data} />
+            <PatientMap
+              units={data}
+              selectedPoliId={selectedPoliId}
+              onSummariesChange={(summaries) => {
+                setPoliSummaries(summaries);
+                if (selectedPoliId === null && summaries.length > 0) {
+                  setSelectedPoliId(summaries[0].poli_id);
+                }
+              }}
+              onSelectedPoliChange={(summary) => {
+                setSelectedPoliId(summary?.poli_id ?? null);
+              }}
+            />
+            <UnitCapacity
+              units={data}
+              summaries={poliSummaries}
+              selectedPoliId={selectedPoliId}
+              onSelectedUnitChange={(unitId) => {
+                setSelectedPoliId(unitId);
+              }}
+            />
           </div>
           <PatientHistoryTable units={data} />
         </>

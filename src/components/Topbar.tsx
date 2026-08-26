@@ -7,7 +7,7 @@ export default function Topbar() {
   return (
     <nav className="flex items-center justify-between bg-slate-800 px-4 py-2.5 sm:px-5 rounded-2xl shadow-md border border-slate-700/40 mb-3">
       {/* Kiri: sapaan pengguna */}
-      <p className="text-xs sm:text-sm font-medium text-blue-400">
+      <p className="text-xs sm:text-sm font-medium text-slate-100">
         Halo, Dr. Bambang
       </p>
 
