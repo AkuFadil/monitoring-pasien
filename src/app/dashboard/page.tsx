@@ -33,7 +33,7 @@ export default function DashboardPage() {
       if (json.success) {
         setData(json.data);
         setError(null);
-        setSelectedPoliId((prev) => prev ?? (json.data[0]?.unit_id ?? null));
+        setSelectedPoliId((prev) => prev ?? json.data[0]?.unit_id ?? null);
       } else {
         setError(json.message || "Gagal memuat data");
       }
@@ -46,7 +46,7 @@ export default function DashboardPage() {
     }
   }, [requestInFlight]);
 
-  // Refresh setiap 60 detik agar database tidak dibebani request berulang.
+  // Refresh setiap 60 detik agar data tersinkronisasi cepat dengan Map & Tabel.
   useEffect(() => {
     fetchData();
 

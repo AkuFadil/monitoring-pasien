@@ -66,7 +66,46 @@ function getKapasitas(namaUnit: string): number {
 }
 
 export async function getDetailAntrian(): Promise<DetailAntrian[]> {
-  const [rows] = await pool.query(`SELECT unit.id AS unit_id, unit.nama, COALESCE(NULLIF(TRIM(unit.unit_alias), ''), unit.nama) AS unit_tampil, COALESCE(pelayanan.belum_dilayani, 0) AS belum_dilayani, COALESCE(pelayanan.sudah_dilayani, 0) AS sudah_dilayani, COALESCE(pelayanan.total_antrian, 0) AS total_antrian FROM db_rsd_soebandi_billing.b_ms_unit unit LEFT JOIN (SELECT unit_id, SUM(dilayani = 0) AS belum_dilayani, SUM(dilayani = 1) AS sudah_dilayani, COUNT(pasien_id) AS total_antrian FROM db_rsd_soebandi_billing.b_pelayanan WHERE DATE(tgl) = CURDATE() GROUP BY unit_id) pelayanan ON unit.id = pelayanan.unit_id WHERE unit.parent_id = '1' AND unit.aktif = 1 ORDER BY total_antrian DESC`);
+  const [rows] = await pool.query(`
+    SELECT 
+      unit.id AS unit_id, 
+      unit.nama, 
+      COALESCE(NULLIF(TRIM(unit.unit_alias), ''), unit.nama) AS unit_tampil, 
+      COALESCE(pelayanan.belum_dilayani, 0) AS belum_dilayani, 
+      COALESCE(pelayanan.sudah_dilayani, 0) AS sudah_dilayani, 
+      COALESCE(pelayanan.total_antrian, 0) AS total_antrian 
+    FROM db_rsd_soebandi_billing.b_ms_unit unit 
+    LEFT JOIN (
+      SELECT 
+        x.unit_id, 
+        SUM(x.status_pasien = 'belum') AS belum_dilayani, 
+        SUM(x.status_pasien != 'belum') AS sudah_dilayani, 
+        COUNT(*) AS total_antrian 
+      FROM (
+        SELECT 
+          bp.unit_id, 
+          bp.pasien_id,
+          CASE 
+            WHEN MAX(ac.penyerahan) IS NOT NULL THEN 'obat'
+            WHEN MIN(ac.validasi) IS NOT NULL THEN 'resep'
+            WHEN MAX(bp.tgl_act2) IS NOT NULL OR MAX(bp.dilayani) = 1 THEN 'selesai'
+            ELSE 'belum'
+          END AS status_pasien
+        FROM db_rsd_soebandi_billing.b_pelayanan bp
+        LEFT JOIN (
+          SELECT pelayanan_id, MIN(tgl_proses) AS validasi, MIN(tgl_selesai) AS penyerahan
+          FROM db_antrian.b_antrian_cekin 
+          WHERE tgl_proses >= CURRENT_DATE() 
+          GROUP BY pelayanan_id
+        ) ac ON bp.id = ac.pelayanan_id
+        WHERE bp.tgl >= CURRENT_DATE() AND bp.tgl < CURRENT_DATE() + INTERVAL 1 DAY
+        GROUP BY bp.unit_id, bp.pasien_id
+      ) x 
+      GROUP BY x.unit_id
+    ) pelayanan ON unit.id = pelayanan.unit_id 
+    WHERE unit.parent_id = '1' AND unit.aktif = 1 
+    ORDER BY total_antrian DESC
+  `);
   const data = rows as Omit<DetailAntrian, "kapasitas">[];
   return data.map((row) => ({
     ...row,

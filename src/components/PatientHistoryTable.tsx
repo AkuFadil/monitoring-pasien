@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronDown, Clock3, Pill, Search, Stethoscope } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  Pill,
+  Search,
+  Stethoscope,
+} from "lucide-react";
 import Pagination from "@/components/Pagination";
 import type { DetailAntrian, HistoryPerjalanan, PasienAntri } from "@/types";
 
@@ -35,38 +42,45 @@ interface StatusConfigItem {
 const STATUS_CONFIG: Record<HistoryStatus, StatusConfigItem> = {
   belum: {
     label: "Belum Diperiksa",
-    activeClass: "border-rose-500/60 bg-rose-500/20 text-rose-300 shadow-sm shadow-rose-950/40 font-bold",
-    inactiveClass: "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-rose-500/40 hover:text-rose-300",
+    activeClass:
+      "border-rose-500/60 bg-rose-500/20 text-rose-300 shadow-sm shadow-rose-950/40 font-bold",
+    inactiveClass:
+      "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-rose-500/40 hover:text-rose-300",
     icon: Clock3,
   },
   selesai: {
     label: "Selesai Periksa",
-    activeClass: "border-emerald-500/60 bg-emerald-500/20 text-emerald-300 shadow-sm shadow-emerald-950/40 font-bold",
-    inactiveClass: "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300",
+    activeClass:
+      "border-emerald-500/60 bg-emerald-500/20 text-emerald-300 shadow-sm shadow-emerald-950/40 font-bold",
+    inactiveClass:
+      "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300",
     icon: CheckCircle2,
   },
   resep: {
     label: "Proses E-Resep",
-    activeClass: "border-amber-500/60 bg-amber-500/20 text-amber-300 shadow-sm shadow-amber-950/40 font-bold",
-    inactiveClass: "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-amber-500/40 hover:text-amber-300",
+    activeClass:
+      "border-amber-500/60 bg-amber-500/20 text-amber-300 shadow-sm shadow-amber-950/40 font-bold",
+    inactiveClass:
+      "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-amber-500/40 hover:text-amber-300",
     icon: Stethoscope,
   },
   obat: {
     label: "Penyerahan Obat",
-    activeClass: "border-cyan-500/60 bg-cyan-500/20 text-cyan-300 shadow-sm shadow-cyan-950/40 font-bold",
-    inactiveClass: "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-cyan-500/40 hover:text-cyan-300",
+    activeClass:
+      "border-cyan-500/60 bg-cyan-500/20 text-cyan-300 shadow-sm shadow-cyan-950/40 font-bold",
+    inactiveClass:
+      "border-slate-700/80 bg-slate-900/60 text-slate-400 hover:border-cyan-500/40 hover:text-cyan-300",
     icon: Pill,
   },
 };
 
-function getStatus(history: HistoryPerjalanan | null, served: boolean): HistoryStatus {
-  if (served) {
-    if (history?.["Penyerahan Obat"]) return "obat";
-    if (history?.["Proses Resep"]) return "resep";
-    if (history?.["Selesai Periksa Terakhir"]) return "selesai";
-    return "selesai";
-  }
-  if (history?.["Selesai Periksa Terakhir"]) return "selesai";
+function getStatus(
+  history: HistoryPerjalanan | null,
+  served: boolean,
+): HistoryStatus {
+  if (history?.["Penyerahan Obat"]) return "obat";
+  if (history?.["Proses Resep"]) return "resep";
+  if (history?.["Selesai Periksa Terakhir"] || served) return "selesai";
   return "belum";
 }
 
@@ -74,7 +88,9 @@ function displayTime(value: string | null | undefined) {
   return value ? `${value.slice(0, 5)} WIB` : "—";
 }
 
-export default function PatientHistoryTable({ units }: PatientHistoryTableProps) {
+export default function PatientHistoryTable({
+  units,
+}: PatientHistoryTableProps) {
   const router = useRouter();
   const [selectedUnitId, setSelectedUnitId] = useState(units[0]?.unit_id ?? 0);
   const [activeStatus, setActiveStatus] = useState<HistoryStatus>("belum");
@@ -84,7 +100,8 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedUnit = units.find((unit) => unit.unit_id === selectedUnitId) ?? units[0];
+  const selectedUnit =
+    units.find((unit) => unit.unit_id === selectedUnitId) ?? units[0];
 
   useEffect(() => {
     if (!units.some((unit) => unit.unit_id === selectedUnitId)) {
@@ -98,13 +115,12 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
     const unitId = selectedUnitId;
 
     async function loadHistory() {
-      setLoading(true);
+      setLoading((prev) => (rows.length === 0 ? true : prev));
       setError(null);
       try {
-        const response = await fetch(
-          `/api/history/unit?unit_id=${unitId}`,
-          { cache: "no-store" },
-        );
+        const response = await fetch(`/api/history/unit?unit_id=${unitId}`, {
+          cache: "no-store",
+        });
         if (!response.ok) throw new Error("Gagal mengambil data histori poli");
         const json = await response.json();
         const records = (json.data ?? []) as UnitHistoryRecord[];
@@ -134,14 +150,25 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
     }
 
     void loadHistory();
-    return () => { cancelled = true; };
+    const interval = setInterval(loadHistory, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [selectedUnitId]);
 
-  const filteredRows = useMemo<HistoryRow[]>(() => rows.filter(({ patient, history, served }) => {
-    const needle = search.trim().toLowerCase();
-    const matchesSearch = !needle || patient.nama.toLowerCase().includes(needle) || patient.no_rm.toLowerCase().includes(needle);
-    return matchesSearch && getStatus(history, served) === activeStatus;
-  }), [rows, search, activeStatus]);
+  const filteredRows = useMemo<HistoryRow[]>(
+    () =>
+      rows.filter(({ patient, history, served }) => {
+        const needle = search.trim().toLowerCase();
+        const matchesSearch =
+          !needle ||
+          patient.nama.toLowerCase().includes(needle) ||
+          patient.no_rm.toLowerCase().includes(needle);
+        return matchesSearch && getStatus(history, served) === activeStatus;
+      }),
+    [rows, search, activeStatus],
+  );
 
   useEffect(() => {
     setPage(1);
@@ -149,7 +176,10 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const paginatedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paginatedRows = filteredRows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
 
   if (!selectedUnit) return null;
 
@@ -158,19 +188,35 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
       <div className="border-b border-slate-700/70 p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-cyan-400">Patient Journey Monitor</p>
-            <h2 className="mt-1 text-lg font-extrabold text-white sm:text-xl tracking-tight">Histori Pasien on Poli</h2>
-            <p className="mt-1 text-xs text-slate-300">Pantau pergerakan waktu pasien berdasarkan unit pelayanan. Klik baris/item pasien untuk melihat detail profil.</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-cyan-400">
+              Patient Journey Monitor
+            </p>
+            <h2 className="mt-1 text-lg font-extrabold text-white sm:text-xl tracking-tight">
+              Histori Pasien on Poli
+            </h2>
+            <p className="mt-1 text-xs text-slate-300">
+              Pantau pergerakan waktu pasien berdasarkan unit pelayanan. Klik
+              baris/item pasien untuk melihat detail profil.
+            </p>
           </div>
           <div className="relative w-full lg:w-64">
             <select
               value={selectedUnit.unit_id}
-              onChange={(event) => setSelectedUnitId(Number(event.target.value))}
+              onChange={(event) =>
+                setSelectedUnitId(Number(event.target.value))
+              }
               className="w-full appearance-none rounded-xl border border-slate-700 bg-slate-900/90 px-3.5 py-2.5 pr-9 text-sm font-semibold text-slate-200 outline-none transition focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/40"
             >
-              {units.map((unit) => <option key={unit.unit_id} value={unit.unit_id}>{unit.unit_tampil}</option>)}
+              {units.map((unit) => (
+                <option key={unit.unit_id} value={unit.unit_id}>
+                  {unit.unit_tampil}
+                </option>
+              ))}
             </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-3.5 text-slate-400" />
+            <ChevronDown
+              size={16}
+              className="pointer-events-none absolute right-3 top-3.5 text-slate-400"
+            />
           </div>
         </div>
 
@@ -207,7 +253,12 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
 
       <div className="p-3 sm:p-5">
         <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
-          <span>Unit aktif: <strong className="text-cyan-300 font-bold">{selectedUnit.unit_tampil}</strong></span>
+          <span>
+            Unit aktif:{" "}
+            <strong className="text-cyan-300 font-bold">
+              {selectedUnit.unit_tampil}
+            </strong>
+          </span>
           <span>{filteredRows.length} pasien</span>
         </div>
         {loading ? (
@@ -216,7 +267,9 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
             Memuat histori pasien...
           </div>
         ) : error ? (
-          <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-5 text-center text-sm text-rose-300">{error}</p>
+          <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-5 text-center text-sm text-rose-300">
+            {error}
+          </p>
         ) : filteredRows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-700/80 bg-slate-900/40 p-8 text-center text-sm text-slate-400">
             Belum ada pasien pada kategori status ini.
@@ -228,7 +281,9 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
                 <tr>
                   <th className="px-4 py-3.5">No. RM</th>
                   <th className="px-4 py-3.5">Nama Pasien</th>
-                  <th className="min-w-64 px-4 py-3.5">Rincian Pergerakan di Poli</th>
+                  <th className="min-w-64 px-4 py-3.5">
+                    Rincian Pergerakan di Poli
+                  </th>
                   <th className="px-4 py-3.5">Waktu Status</th>
                   <th className="px-4 py-3.5">Total Waktu Tunggu</th>
                 </tr>
@@ -247,16 +302,17 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
                       {patient.nama}
                     </td>
                     <td className="max-w-md px-4 py-3.5 leading-relaxed text-slate-300">
-                      {history?.["Rincian Pergerakan Poli"] ?? `${selectedUnit.unit_tampil} — menunggu pemeriksaan`}
+                      {history?.["Rincian Pergerakan Poli"] ??
+                        `${selectedUnit.unit_tampil} — menunggu pemeriksaan`}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3.5 font-medium text-slate-300">
                       {activeStatus === "belum"
                         ? displayTime(history?.["Jam Daftar Awal"])
                         : activeStatus === "selesai"
-                        ? displayTime(history?.["Selesai Periksa Terakhir"])
-                        : activeStatus === "resep"
-                        ? displayTime(history?.["Proses Resep"])
-                        : displayTime(history?.["Penyerahan Obat"])}
+                          ? displayTime(history?.["Selesai Periksa Terakhir"])
+                          : activeStatus === "resep"
+                            ? displayTime(history?.["Proses Resep"])
+                            : displayTime(history?.["Penyerahan Obat"])}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3.5">
                       <span
@@ -273,7 +329,12 @@ export default function PatientHistoryTable({ units }: PatientHistoryTableProps)
                 ))}
               </tbody>
             </table>
-            <Pagination page={currentPage} pageSize={PAGE_SIZE} total={filteredRows.length} onPageChange={setPage} />
+            <Pagination
+              page={currentPage}
+              pageSize={PAGE_SIZE}
+              total={filteredRows.length}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>
