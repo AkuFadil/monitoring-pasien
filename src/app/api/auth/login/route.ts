@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await verifyUser(username, password);
+    const { user, error } = await verifyUser(username, password);
 
     if (!user) {
       return NextResponse.json(
-        { success: false, message: "Username atau password salah" },
+        { success: false, message: error || "Username atau password salah" },
         { status: 401 }
       );
     }
@@ -29,7 +29,13 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: "Login berhasil",
-      user: { id: user.id, username: user.username, nama: user.nama },
+      user: {
+        id: user.id,
+        username: user.username,
+        nama: user.nama,
+        role: user.role,
+        app_access: user.app_access,
+      },
     });
 
     response.cookies.set(SESSION_COOKIE_NAME, token, {
@@ -49,3 +55,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

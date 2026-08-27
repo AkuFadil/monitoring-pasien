@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import Topbar from "@/components/Topbar";
 import SummaryCards from "@/components/SummaryCards";
@@ -10,18 +10,66 @@ import UnitCapacity from "@/components/UnitCapacity";
 import Footer from "@/components/Footer";
 import type { DetailAntrian } from "@/types";
 
-/**
- * Dashboard Page — halaman utama monitoring antrian
- * Menggantikan Dashboard_view.php + Dashboard.php controller
- * Data di-fetch dari API /api/antrian dengan auto-refresh tiap 60 detik
- */
+interface UserProfile {
+  id: number;
+  username: string;
+  nama: string;
+  role: string;
+  app_access: number;
+}
+
+/** Match user role string with unit name / unit_alias in DB */
+function findUnitByRole(units: DetailAntrian[], role: string): DetailAntrian | null {
+  if (!role) return null;
+  const lowerRole = role.toLowerCase().trim().replace(/^poli\s+/i, "");
+
+  const direct = units.find((u) => {
+    const uName = u.nama.toLowerCase().replace(/^poli\s+/i, "").trim();
+    const uAlias = u.unit_tampil.toLowerCase().replace(/^poli\s+/i, "").trim();
+    return uName === lowerRole || uAlias === lowerRole;
+  });
+  if (direct) return direct;
+
+  return (
+    units.find((u) => {
+      const uName = u.nama.toLowerCase();
+      const uAlias = u.unit_tampil.toLowerCase();
+      return (
+        uName.includes(lowerRole) ||
+        lowerRole.includes(uName) ||
+        uAlias.includes(lowerRole) ||
+        lowerRole.includes(uAlias)
+      );
+    }) ?? null
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DetailAntrian[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [poliSummaries, setPoliSummaries] = useState<PoliSummary[]>([]);
   const [selectedPoliId, setSelectedPoliId] = useState<number | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const requestInFlight = useState({ current: false })[0];
+
+  // Fetch logged in user profile
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.user) {
+            setUser(json.user);
+          }
+        }
+      } catch (err) {
+        console.error("Fetch user error:", err);
+      }
+    }
+    void fetchUser();
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (requestInFlight.current) return;
@@ -33,7 +81,6 @@ export default function DashboardPage() {
       if (json.success) {
         setData(json.data);
         setError(null);
-        setSelectedPoliId((prev) => prev ?? json.data[0]?.unit_id ?? null);
       } else {
         setError(json.message || "Gagal memuat data");
       }
@@ -46,13 +93,10 @@ export default function DashboardPage() {
     }
   }, [requestInFlight]);
 
-  // Refresh setiap 60 detik agar data tersinkronisasi cepat dengan Map & Tabel.
   useEffect(() => {
     fetchData();
 
     const pollInterval = setInterval(fetchData, 60_000);
-
-    // Listen juga untuk event refresh manual dari Footer
     const handleRefresh = () => fetchData();
     window.addEventListener("dashboard-refresh", handleRefresh);
 
@@ -62,7 +106,32 @@ export default function DashboardPage() {
     };
   }, [fetchData]);
 
-  const totalPasien = data.reduce((acc, item) => acc + item.total_antrian, 0);
+  // Deteremine active units & selected unit based on app_access (0 vs 4)
+  const isPoliMode = user?.app_access === 4;
+  const matchedUserUnit = useMemo(() => {
+    if (!isPoliMode || !user?.role) return null;
+    return findUnitByRole(data, user.role);
+  }, [isPoliMode, user?.role, data]);
+
+  // Set default selectedPoliId when data loads or user logs in
+  useEffect(() => {
+    if (data.length === 0) return;
+    if (isPoliMode && matchedUserUnit) {
+      setSelectedPoliId(matchedUserUnit.unit_id);
+    } else {
+      setSelectedPoliId((prev) => prev ?? data[0]?.unit_id ?? null);
+    }
+  }, [data, isPoliMode, matchedUserUnit]);
+
+  // Units passed to components (filtered if app_access === 4)
+  const activeUnits = useMemo(() => {
+    if (isPoliMode && matchedUserUnit) {
+      return [matchedUserUnit];
+    }
+    return data;
+  }, [isPoliMode, matchedUserUnit, data]);
+
+  const totalPasien = activeUnits.reduce((acc, item) => acc + item.total_antrian, 0);
 
   return (
     <div className="space-y-7">
@@ -70,16 +139,19 @@ export default function DashboardPage() {
       <Header totalPasien={totalPasien} />
 
       {/* Ringkasan statistik di bawah header dan clock */}
-      {!loading && !error && <SummaryCards data={data} />}
+      {!loading && !error && <SummaryCards data={activeUnits} />}
 
       {/* Denah lokasi + kapasitas unit */}
       {!loading && !error && data.length > 0 && (
         <>
           <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
             <PatientMap
-              units={data}
+              units={activeUnits}
               selectedPoliId={selectedPoliId}
-              onSelectPoli={(poliId) => setSelectedPoliId(poliId)}
+              onSelectPoli={(poliId) => {
+                // Admin can switch poli, poli user is locked to their poli
+                if (!isPoliMode) setSelectedPoliId(poliId);
+              }}
               onSummariesChange={(summaries) => setPoliSummaries(summaries)}
             />
             <UnitCapacity
@@ -88,7 +160,7 @@ export default function DashboardPage() {
               selectedPoliId={selectedPoliId}
             />
           </div>
-          <PatientHistoryTable units={data} />
+          <PatientHistoryTable units={activeUnits} />
         </>
       )}
 
@@ -116,3 +188,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

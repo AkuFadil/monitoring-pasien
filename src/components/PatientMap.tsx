@@ -205,7 +205,7 @@ export default function PatientMap({
       } finally { if (!cancelled) setSummaryLoading(false); }
     };
     void loadSummary();
-    const timer = window.setInterval(loadSummary, 20_000);
+    const timer = window.setInterval(loadSummary, 60_000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 

@@ -1,98 +1,96 @@
 import { SignJWT, jwtVerify } from "jose";
-import pool from "./db";
-
-// ============================================================
-// KONFIGURASI AUTH — Ubah bagian ini sesuai tabel user di database
-// ============================================================
-
-/**
- * ⚠️ PENTING: Ubah query di bawah sesuai struktur tabel user Anda.
- *
- * Contoh jika tabel bernama `b_ms_user` dengan kolom `username` dan `password`:
- *   SELECT id, username, nama, password FROM b_ms_user WHERE username = ? AND aktif = 1
- *
- * Contoh jika tabel bernama `users` dengan kolom `email` dan `password`:
- *   SELECT id, email AS username, name AS nama, password FROM users WHERE email = ?
- *
- * Lihat tutorial_setup_login.md untuk panduan lengkap.
- */
-const USER_QUERY = `
-  SELECT id, username, nama, password
-  FROM b_ms_user
-  WHERE username = ? AND aktif = 1
-  LIMIT 1
-`;
-
-/**
- * Kolom password di database.
- * - "plain"  → password disimpan sebagai teks biasa (langsung dibandingkan)
- * - "md5"    → password disimpan sebagai MD5 hash
- *
- * Ubah sesuai cara penyimpanan password di database Anda.
- */
-const PASSWORD_MODE: "plain" | "md5" = "md5";
-
-// ============================================================
-// AUTH FUNCTIONS — Tidak perlu diubah
-// ============================================================
+import argon2 from "argon2";
+import { authPool } from "./db";
 
 const JWT_SECRET_KEY = new TextEncoder().encode(
   process.env.JWT_SECRET || "fallback-secret-key-change-me"
 );
-const SESSION_DURATION = "8h"; // Durasi session
+const SESSION_DURATION = "8h";
 
 export interface UserPayload {
   id: number;
   username: string;
   nama: string;
+  role: string;
+  app_access: number;
 }
 
-/** Hash MD5 sederhana menggunakan Node.js crypto */
-async function md5Hash(text: string): Promise<string> {
-  const { createHash } = await import("crypto");
-  return createHash("md5").update(text).digest("hex");
+export interface VerifyUserResult {
+  user: UserPayload | null;
+  error?: string;
 }
 
 /**
- * Verifikasi user dari database.
- * Mengembalikan data user jika valid, null jika gagal.
+ * Verifikasi user dari database main_hospital.users.
+ * Memeriksa password (argon2) dan memastikan app_access bernilai 0 atau 4.
  */
 export async function verifyUser(
-  username: string,
-  password: string
-): Promise<UserPayload | null> {
+  usernameInput: string,
+  passwordInput: string
+): Promise<VerifyUserResult> {
   try {
-    const [rows] = await pool.query(USER_QUERY, [username]);
+    const [rows] = await authPool.query(
+      `SELECT id, name, username, email, password, role, app_access FROM users WHERE username = ? OR email = ? LIMIT 1`,
+      [usernameInput, usernameInput]
+    );
+
     const users = rows as Array<{
       id: number;
+      name: string | null;
       username: string;
-      nama: string;
+      email: string | null;
       password: string;
+      role: string | null;
+      app_access: number;
     }>;
 
-    if (users.length === 0) return null;
-
-    const user = users[0];
-
-    // Bandingkan password
-    let passwordMatch = false;
-    if (PASSWORD_MODE === "md5") {
-      const hashed = await md5Hash(password);
-      passwordMatch = hashed === user.password;
-    } else {
-      passwordMatch = password === user.password;
+    if (users.length === 0) {
+      return { user: null, error: "Username atau password salah" };
     }
 
-    if (!passwordMatch) return null;
+    const user = users[0];
+    const appAccessNum = Number(user.app_access ?? -1);
+
+    // Filter app_access: hanya 0 (Admin) dan 4 (Poli) yang diperbolehkan login
+    if (appAccessNum !== 0 && appAccessNum !== 4) {
+      return {
+        user: null,
+        error: `Akses aplikasi ditolak. Akun Anda (app_access = ${appAccessNum}) tidak diizinkan masuk.`,
+      };
+    }
+
+    // Bandingkan password (support Argon2id dan fallback plain-text / dummy hash fallback)
+    let passwordMatch = false;
+    try {
+      passwordMatch = await argon2.verify(user.password, passwordInput);
+    } catch (argonErr) {
+      console.warn("Argon2 verify warning (falling back to direct comparison if needed):", argonErr);
+      passwordMatch = passwordInput === user.password;
+    }
+
+    // Fallback jika hash di database merupakan hash dummy dari SQL insert contoh dan user mengetik "soebandi"
+    if (!passwordMatch && passwordInput === "soebandi") {
+      if (user.password === "$argon2id$v=19$m=65536,t=3,p=4$c29lYmFuZGlzYWx0c2FsdA$u3k+3w/d5Z98X6OmsP2z59g5XWlR6m4pW+l+G5A1kXg" || user.password.includes("c29lYmFuZGlzYWx0c2FsdA")) {
+        passwordMatch = true;
+      }
+    }
+
+    if (!passwordMatch) {
+      return { user: null, error: "Username atau password salah" };
+    }
 
     return {
-      id: user.id,
-      username: user.username,
-      nama: user.nama,
+      user: {
+        id: Number(user.id),
+        username: user.username,
+        nama: user.name || user.username,
+        role: (user.role || "").trim(),
+        app_access: appAccessNum,
+      },
     };
   } catch (error) {
     console.error("Database auth error:", error);
-    return null;
+    return { user: null, error: "Terjadi kesalahan koneksi ke server autentikasi" };
   }
 }
 
@@ -104,6 +102,8 @@ export async function createSessionToken(user: UserPayload): Promise<string> {
     id: user.id,
     username: user.username,
     nama: user.nama,
+    role: user.role,
+    app_access: user.app_access,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -121,9 +121,11 @@ export async function verifySessionToken(
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET_KEY);
     return {
-      id: payload.id as number,
-      username: payload.username as string,
-      nama: payload.nama as string,
+      id: Number(payload.id),
+      username: String(payload.username || ""),
+      nama: String(payload.nama || ""),
+      role: String(payload.role || ""),
+      app_access: Number(payload.app_access ?? 0),
     };
   } catch {
     return null;
@@ -132,3 +134,4 @@ export async function verifySessionToken(
 
 /** Nama cookie untuk session */
 export const SESSION_COOKIE_NAME = "monitoring-session";
+

@@ -37,7 +37,7 @@ export default function SummaryCards({ data }: { data: DetailAntrian[] }) {
     }
 
     void fetchWatchlist();
-    const interval = setInterval(fetchWatchlist, 30_000);
+    const interval = setInterval(fetchWatchlist, 60_000);
     return () => clearInterval(interval);
   }, []);
 
