@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { Map as LeafletMap, Marker } from "leaflet";
-import { Layers, MapPin } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Layers } from "lucide-react";
 import type { DetailAntrian } from "@/types";
 
 export interface PoliSummary {
@@ -20,133 +19,6 @@ export interface PoliSummary {
   avg_waiting_minutes: number;
 }
 
-const FLOORS = [
-  { id: "1", label: "Lantai 1", image: "/img/Lt 1.png" },
-  { id: "2", label: "Lantai 2", image: "/img/Lt 2.png" },
-  { id: "3", label: "Lantai 3", image: "/img/Lt 3.png" },
-];
-
-/** Palet warna per poli — konsisten dengan UnitCapacity */
-const POLI_COLORS_HEX = [
-  "#22d3ee", "#fbbf24", "#fb7185", "#34d399", "#a78bfa",
-  "#fb923c", "#38bdf8", "#f472b6", "#2dd4bf", "#facc15",
-  "#818cf8", "#f87171", "#a3e635", "#e879f9", "#60a5fa",
-  "#4ade80", "#c084fc", "#94a3b8", "#67e8f9", "#fcd34d",
-];
-
-/**
- * Hanya poli yang sudah memiliki koordinat dari file unit-coordinates.json.
- * Poli lain sengaja tidak dimasukkan agar marker-nya tersembunyi.
- */
-const UNIT_LOCATIONS: Record<string, { floor: string; lat: number; lng: number }> = {
-  "paru": { floor: "1", lat: 883.78, lng: 633.24 },
-  "poli paru": { floor: "1", lat: 883.78, lng: 633.24 },
-  "interna": { floor: "1", lat: 861.08, lng: 742.59 },
-  "poli interna": { floor: "1", lat: 861.08, lng: 742.59 },
-  "penyakit dalam": { floor: "1", lat: 861.08, lng: 742.59 },
-  "jantung": { floor: "1", lat: 835.01, lng: 832.60 },
-  "jantung dan pembuluh darah": { floor: "1", lat: 835.01, lng: 832.60 },
-  "poli jantung": { floor: "1", lat: 835.01, lng: 832.60 },
-  "depo farmasi 1": { floor: "1", lat: 817.35, lng: 929.33 },
-  "depofarmasi 1": { floor: "1", lat: 817.35, lng: 929.33 },
-  "depo 1": { floor: "1", lat: 817.35, lng: 929.33 },
-  "saraf": { floor: "1", lat: 792.61, lng: 1028.79 },
-  "syaraf": { floor: "1", lat: 792.61, lng: 1028.79 },
-  "poli saraf": { floor: "1", lat: 792.61, lng: 1028.79 },
-  "poli syaraf": { floor: "1", lat: 792.61, lng: 1028.79 },
-  "kandungan": { floor: "1", lat: 774.28, lng: 1120.96 },
-  "kehamilan": { floor: "1", lat: 774.28, lng: 1120.96 },
-  "poli kandungan": { floor: "1", lat: 774.28, lng: 1120.96 },
-  "hemodalisa": { floor: "1", lat: 801.37, lng: 602.12 },
-  "bedah ortopedi": { floor: "1", lat: 816, lng: 663.36 },
-  "bedah orthopedi": { floor: "1", lat: 816, lng: 663.36 },
-  "poli bedah ortopedi": { floor: "1", lat: 816, lng: 663.36 },
-  "hip knee": { floor: "1", lat: 801.86, lng: 703.68 },
-  "hip dan knee": { floor: "1", lat: 801.86, lng: 703.68 },
-  "poli hip dan knee": { floor: "1", lat: 801.86, lng: 703.68 },
-  "spine": { floor: "1", lat: 789.84, lng: 675.34 },
-  "anastesi": { floor: "1", lat: 742.51, lng: 819.14 },
-  "poli anastesi": { floor: "1", lat: 742.51, lng: 819.14 },
-  "bedah umum": { floor: "1", lat: 733.26, lng: 890.63 },
-  "poli bedah umum": { floor: "1", lat: 733.26, lng: 890.63 },
-  "bedah digestif": { floor: "1", lat: 726.2, lng: 967.41 },
-  "poli bedah digestif": { floor: "1", lat: 726.2, lng: 967.41 },
-  "bedah saraf": { floor: "1", lat: 694.5, lng: 1032.36 },
-  "bedah syaraf": { floor: "1", lat: 694.5, lng: 1032.36 },
-  "poli bedah syaraf": { floor: "1", lat: 694.5, lng: 1032.36 },
-  "poli bedah saraf": { floor: "1", lat: 694.5, lng: 1032.36 },
-  "gizi": { floor: "1", lat: 679.53, lng: 1104.66 },
-  "poli gizi": { floor: "1", lat: 679.53, lng: 1104.66 },
-  "mri": { floor: "1", lat: 854.18, lng: 526.78 },
-  "poli mri": { floor: "1", lat: 854.18, lng: 526.78 },
-  "onkologi": { floor: "1", lat: 666.09, lng: 1277.98 },
-  "bedah onkologi": { floor: "1", lat: 666.09, lng: 1277.98 },
-  "poli bedah onkologi": { floor: "1", lat: 666.09, lng: 1277.98 },
-  "hema onko": { floor: "1", lat: 695.79, lng: 1284.35 },
-  "poli hema onko": { floor: "1", lat: 695.79, lng: 1284.35 },
-  "hemato onkologi": { floor: "1", lat: 695.79, lng: 1284.35 },
-  "poli onkologi": { floor: "1", lat: 666.09, lng: 1277.98 },
-  "hema onko anak": { floor: "1", lat: 690, lng: 1249.33 },
-  "poli hema onko anak": { floor: "1", lat: 690, lng: 1249.33 },
-  "platinum": { floor: "1", lat: 663.97, lng: 1326.76 },
-  "poli platinum": { floor: "1", lat: 663.97, lng: 1326.76 },
-  "vaksin": { floor: "1", lat: 591.14, lng: 1276.54 },
-  "klinik vaksin": { floor: "1", lat: 591.14, lng: 1276.54 },
-  "mcu dan vaksin": { floor: "1", lat: 591.14, lng: 1276.54 },
-  "vaksin, klinik": { floor: "1", lat: 591.14, lng: 1276.54 },
-  "bedah thorax": { floor: "2", lat: 724, lng: 918.08 },
-  "poli bedah thorax": { floor: "2", lat: 724, lng: 918.08 },
-
-  // Lantai 2
-  "tht": { floor: "2", lat: 879.32, lng: 646.25 },
-  "poli tht": { floor: "2", lat: 879.32, lng: 646.25 },
-  "POLI THT": { floor: "2", lat: 879.32, lng: 646.25 },
-  "anak": { floor: "2", lat: 854.32, lng: 776.2 },
-  "poli anak": { floor: "2", lat: 854.32, lng: 776.2 },
-  "POLI ANAK": { floor: "2", lat: 854.32, lng: 776.2 },
-  "mata": { floor: "2", lat: 827.82, lng: 877.67 },
-  "poli mata": { floor: "2", lat: 827.82, lng: 877.67 },
-  "POLI MATA": { floor: "2", lat: 827.82, lng: 877.67 },
-  "bedah anak": { floor: "2", lat: 751.82, lng: 789.2 },
-  "poli bedah anak": { floor: "2", lat: 751.82, lng: 789.2 },
-  "POLI BEDAH ANAK": { floor: "2", lat: 751.82, lng: 789.2 },
-  "bedah urologi": { floor: "2", lat: 740.04, lng: 862.17 },
-  "bedah urolgi": { floor: "2", lat: 740.04, lng: 862.17 },
-  "poli bedah urologi": { floor: "2", lat: 740.04, lng: 862.17 },
-  "POLI BEDAH UROLGI": { floor: "2", lat: 740.04, lng: 862.17 },
-  "kulit kelamin": { floor: "2", lat: 802.06, lng: 995.13 },
-  "kulit dan kelamin": { floor: "2", lat: 802.06, lng: 995.13 },
-  "poli kulit kelamin": { floor: "2", lat: 802.06, lng: 995.13 },
-  "POLI KULIT KELAMIN": { floor: "2", lat: 802.06, lng: 995.13 },
-  "bedah plastik": { floor: "2", lat: 707.56, lng: 980.13 },
-  "bedah plastic": { floor: "2", lat: 707.56, lng: 980.13 },
-  "poli bedah plastik": { floor: "2", lat: 707.56, lng: 980.13 },
-  "POLI BEDAH PLASTIK": { floor: "2", lat: 707.56, lng: 980.13 },
-  "kemotrapi": { floor: "2", lat: 702.06, lng: 1052.11 },
-  "kemoterapi": { floor: "2", lat: 702.06, lng: 1052.11 },
-  "poli kemotrapi": { floor: "2", lat: 702.06, lng: 1052.11 },
-  "POLI KEMOTRAPI": { floor: "2", lat: 702.06, lng: 1052.11 },
-  "psikiatri": { floor: "2", lat: 774.56, lng: 1118.59 },
-  "poli psikiatri": { floor: "2", lat: 774.56, lng: 1118.59 },
-  "POLI PSIKIATRI": { floor: "2", lat: 774.56, lng: 1118.59 },
-  "vct": { floor: "2", lat: 689.82, lng: 1104.09 },
-  "poli vct": { floor: "2", lat: 689.82, lng: 1104.09 },
-  "POLI VCT": { floor: "2", lat: 689.82, lng: 1104.09 },
-};
-
-function findUnitLocation(unitName: string): { floor: string; lat: number; lng: number } | null {
-  const lower = unitName.toLowerCase().trim().replace(/^poli\s+/i, "").replace(/[\s\-_]+/g, " ");
-  if (UNIT_LOCATIONS[lower]) return UNIT_LOCATIONS[lower];
-  if (UNIT_LOCATIONS[`poli ${lower}`]) return UNIT_LOCATIONS[`poli ${lower}`];
-
-  for (const [key, val] of Object.entries(UNIT_LOCATIONS)) {
-    if (lower.includes(key) || key.includes(lower)) return val;
-  }
-  return null;
-}
-
-const MAP_BOUNDS: import("leaflet").LatLngBoundsExpression = [[0, 0], [1000, 1600]];
-
 interface PatientMapProps {
   units?: DetailAntrian[];
   mapImage?: string;
@@ -155,195 +27,381 @@ interface PatientMapProps {
   selectedPoliId?: number | null;
 }
 
-/** Denah Leaflet berbasis gambar untuk tiga lantai rumah sakit. */
+// ─── Threshold Configuration ─────────────────────────────────────────
+const THRESHOLD = {
+  /** Batas waktu tunggu rata-rata (menit) */
+  waitMinutes: 60,
+} as const;
+
+// ─── Category Colors & Labels ────────────────────────────────────────
+const CATEGORIES = {
+  lancar: { color: "#22c55e", label: "Lancar" },
+  ramai: { color: "#eab308", label: "Ramai" },
+  lambat: { color: "#f97316", label: "Lambat" },
+  padat: { color: "#ef4444", label: "Padat" },
+} as const;
+
+type CategoryKey = keyof typeof CATEGORIES;
+
+function classify(belumDiperiksa: number, avgWait: number, queueThreshold: number): CategoryKey {
+  if (belumDiperiksa <= queueThreshold && avgWait <= THRESHOLD.waitMinutes) return "lancar";
+  if (belumDiperiksa > queueThreshold && avgWait <= THRESHOLD.waitMinutes) return "ramai";
+  if (belumDiperiksa <= queueThreshold && avgWait > THRESHOLD.waitMinutes) return "lambat";
+  return "padat";
+}
+
+// ─── Floor assignments ───────────────────────────────────────────────
+const FLOORS = [
+  { id: "1", label: "Lantai 1" },
+  { id: "2", label: "Lantai 2" },
+];
+
+const UNIT_FLOORS: Record<string, string> = {
+  // Lantai 1
+  paru: "1", "poli paru": "1",
+  interna: "1", "poli interna": "1", "penyakit dalam": "1",
+  jantung: "1", "jantung dan pembuluh darah": "1", "poli jantung": "1",
+  "depo farmasi 1": "1", depo1: "1",
+  saraf: "1", syaraf: "1", "poli saraf": "1", "poli syaraf": "1",
+  kandungan: "1", kehamilan: "1", "poli kandungan": "1",
+  hemodalisa: "1",
+  "bedah ortopedi": "1", "bedah orthopedi": "1", "poli bedah ortopedi": "1",
+  "hip knee": "1", "hip dan knee": "1", "poli hip dan knee": "1",
+  spine: "1",
+  anastesi: "1", "poli anastesi": "1",
+  "bedah umum": "1", "poli bedah umum": "1",
+  "bedah digestif": "1", "poli bedah digestif": "1",
+  "bedah saraf": "1", "bedah syaraf": "1", "poli bedah saraf": "1", "poli bedah syaraf": "1",
+  gizi: "1", "poli gizi": "1",
+  mri: "1", "poli mri": "1",
+  onkologi: "1", "bedah onkologi": "1", "poli bedah onkologi": "1",
+  "hema onko": "1", "poli hema onko": "1", "hemato onkologi": "1", "poli onkologi": "1",
+  "hema onko anak": "1", "gastroenterologi hepatologi": "1", gastro: "1",
+
+  platinum: "1", "poli platinum": "1", premiyum: "1", premium: "1",
+  vaksin: "1", "klinik vaksin": "1", "mcu dan vaksin": "1", "vaksin, klinik": "1",
+  mcu: "1", eksekutif: "1", "poli eksekutif": "1",
+
+  // Lantai 2
+  "bedah thorax": "2", "poli bedah thorax": "2",
+  tht: "2", "poli tht": "2",
+  anak: "2", "poli anak": "2",
+  kardiologi: "2", "kardiologi anak": "2", "karduologi anak": "2",
+  soeskin: "2", "skin": "2",
+  mata: "2", "poli mata": "2",
+  "bedah anak": "2", "poli bedah anak": "2",
+  "bedah urologi": "2", "bedah urolgi": "2", "poli bedah urologi": "2",
+  "kulit kelamin": "2", "kulit dan kelamin": "2", "poli kulit kelamin": "2",
+  "bedah plastik": "2", "bedah plastic": "2", "poli bedah plastik": "2",
+  kemotrapi: "2", kemoterapi: "2", "poli kemotrapi": "2",
+  psikiatri: "2", "poli psikiatri": "2",
+  vct: "2", "poli vct": "2",
+  gigi: "2", "poli gigi": "2",
+};
+
+function getUnitFloor(unitName: string): string {
+  const lower = unitName.toLowerCase().trim().replace(/^poli\s+/i, "").replace(/[\s\-_]+/g, " ");
+  if (UNIT_FLOORS[lower]) return UNIT_FLOORS[lower];
+  for (const [key, val] of Object.entries(UNIT_FLOORS)) {
+    if (lower.includes(key) || key.includes(lower)) return val;
+  }
+  return "1";
+}
+
+/** Singkat nama poli */
+function getShortName(fullName: string): string {
+  const upper = fullName.toUpperCase().replace(/^POLI\s+/i, "").trim();
+  const MAP: Record<string, string> = {
+    "BEDAH ONKOLOGI": "B. ONKO", "BEDAH DIGESTIF": "B. DIGESTIF",
+    "BEDAH ORTOPEDI": "B. ORTOPEDI", "BEDAH ORTHOPEDI": "B. ORTOPEDI",
+    "BEDAH SARAF": "B. SARAF", "BEDAH SYARAF": "B. SARAF",
+    "BEDAH UMUM": "B. UMUM", "BEDAH THORAX": "B. THORAX",
+    "BEDAH ANAK": "B. ANAK", "BEDAH UROLOGI": "B. UROLOGI", "BEDAH UROLGI": "B. UROLOGI",
+    "BEDAH PLASTIK": "B. PLASTIK", "BEDAH PLASTIC": "B. PLASTIK",
+    "HIP KNEE": "HIP KNEE", "HIP DAN KNEE": "HIP KNEE",
+    "KULIT KELAMIN": "KULIT", "KULIT DAN KELAMIN": "KULIT",
+    "HEMA ONKO": "H. ONKO", "HEMA ONKO ANAK": "H. ONKO ANAK",
+    "HEMATO ONKOLOGI": "H. ONKO", "PENYAKIT DALAM": "DALAM",
+    "JANTUNG DAN PEMBULUH DARAH": "JANTUNG",
+    "DEPO FARMASI 1": "DEPO 1",
+    "GASTROENTEROLOGI": "GASTRO",
+    "KEMOTERAPI": "KEMO", "KEMOTRAPI": "KEMO",
+  };
+  if (MAP[upper]) return MAP[upper];
+  let cleaned = upper;
+  if (cleaned.startsWith("BEDAH ") && cleaned.length > 10) cleaned = "B. " + cleaned.slice(6);
+  return cleaned.length > 14 ? cleaned.slice(0, 12) + "…" : cleaned;
+}
+
+// ─── Scatter Plot Config ─────────────────────────────────────────────
+const CHART = {
+  svgW: 820,
+  svgH: 520,
+  // Sumbu Y tetap di kiri angka, dengan ruang untuk label dan titik X = 0.
+  pad: { top: 40, right: 15, bottom: 65, left: 55 },
+  pointInset: 32,
+  dotR: 8,
+} as const;
+
 export default function PatientMap({
   units = [],
-  mapImage,
   onSelectPoli,
   onSummariesChange,
   selectedPoliId,
 }: PatientMapProps) {
-  const mapElement = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<LeafletMap | null>(null);
-  const leafletRef = useRef<typeof import("leaflet") | null>(null);
-  const overlayRef = useRef<import("leaflet").ImageOverlay | null>(null);
-  const markersRef = useRef<Marker[]>([]);
-  const [floor, setFloor] = useState(FLOORS[0]);
   const [summaries, setSummaries] = useState<PoliSummary[]>([]);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [floorId, setFloorId] = useState<string>("1");
+  const [hovered, setHovered] = useState<{
+    id: number; name: string; total: number; belum: number;
+    avg: number; over120: number; cat: CategoryKey;
+    sx: number; sy: number;
+  } | null>(null);
 
-  // Simpan refs supaya renderMap bisa akses data terbaru tanpa re-trigger effect
-  const unitsRef = useRef(units);
-  unitsRef.current = units;
-  const floorRef = useRef(floor);
-  floorRef.current = floor;
-  const summariesRef = useRef(summaries);
-  summariesRef.current = summaries;
-  const selectedPoliRef = useRef(selectedPoliId);
-  selectedPoliRef.current = selectedPoliId;
-  const onSelectPoliRef = useRef(onSelectPoli);
-  onSelectPoliRef.current = onSelectPoli;
-
+  // ── Data fetching (same as before) ──────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    const loadSummary = async () => {
+    const load = async () => {
       try {
-        const response = await fetch("/api/dashboard/poli-summary", { cache: "no-store" });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message ?? "Gagal memuat summary");
-        if (!cancelled) {
-          const nextSummaries = result.data ?? [];
-          setSummaries(nextSummaries);
-          onSummariesChange?.(nextSummaries);
-          setSummaryError(null);
-        }
-      } catch (error) {
-        console.error("Fetch poli summary error:", error);
-        if (!cancelled) setSummaryError("Data pasien gagal diperbarui");
-      } finally { if (!cancelled) setSummaryLoading(false); }
+        const res = await fetch("/api/dashboard/poli-summary", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message ?? "Gagal memuat summary");
+        if (!cancelled) { setSummaries(json.data ?? []); onSummariesChange?.(json.data ?? []); setError(null); }
+      } catch (e) {
+        console.error("Fetch poli summary error:", e);
+        if (!cancelled) setError("Data pasien gagal diperbarui");
+      } finally { if (!cancelled) setLoading(false); }
     };
-    void loadSummary();
-    const timer = window.setInterval(loadSummary, 60_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, []);
+    void load();
+    const t = window.setInterval(load, 20_000);
+    return () => { cancelled = true; window.clearInterval(t); };
+  }, [onSummariesChange]);
 
-  // Render satu marker static per poli; refresh hanya mengganti data indikator.
-  const renderPins = useCallback(() => {
-    const L = leafletRef.current;
-    const map = mapRef.current;
-    if (!map || !L) return;
-    markersRef.current.forEach((marker) => marker.remove());
-    const newMarkers: Marker[] = [];
-    unitsRef.current.forEach((unit) => {
-      const location = findUnitLocation(unit.unit_tampil) ?? findUnitLocation(unit.nama);
-      if (!location || location.floor !== floorRef.current.id) return;
-      const summary = summariesRef.current.find((item) => item.poli_id === unit.unit_id);
-      const values = [summary?.waiting_0_30 ?? 0, summary?.waiting_30_60 ?? 0, summary?.waiting_60_120 ?? 0, summary?.waiting_120_plus ?? 0];
-      const sizes = values.map((value) => Math.min(22, 7 + Math.log2(value + 1) * 3));
-      const colors = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
-      const html = `<div class=\"poli-marker ${selectedPoliRef.current === unit.unit_id ? "poli-marker-selected" : ""}\"><strong>${unit.unit_tampil}</strong><span class=\"poli-marker-total\">${summary?.belum_diperiksa ?? "…"}</span><div class=\"poli-marker-dots\">${colors.map((color, i) => `<i style=\"background:${color};width:${sizes[i]}px;height:${sizes[i]}px\"></i>`).join("")}</div></div>`;
-      const marker = L.marker([location.lat, location.lng], { icon: L.divIcon({ className: "", html, iconSize: [130, 58], iconAnchor: [65, 29] }) }).addTo(map);
-      marker.on("click", () => {
-        onSelectPoliRef.current?.(unit.unit_id);
-      });
-      marker.bindTooltip(unit.unit_tampil, { direction: "top" });
-      newMarkers.push(marker);
-    });
-    markersRef.current = newMarkers;
-    map.invalidateSize();
-  }, []);
+  // ── Derive scatter points from summary ───────────────────────────
+  const points = useMemo(() =>
+    summaries.map((s) => ({
+      id: s.poli_id,
+      name: s.nama_poli,
+      short: getShortName(s.nama_poli),
+      floor: getUnitFloor(s.nama_poli),
+      belum: s.belum_diperiksa ?? 0,
+      avg: s.avg_waiting_minutes ?? 0,
+      total: s.total_pasien ?? 0,
+      over120: s.waiting_120_plus ?? 0,
+    })),
+  [summaries]);
 
-  useEffect(() => { renderPins(); }, [summaries, floor, selectedPoliId, renderPins]);
+  const filtered = useMemo(() => points.filter((p) => p.floor === floorId), [points, floorId]);
 
-  // Init Leaflet map — sekali saja saat mount
-  useEffect(() => {
-    let disposed = false;
+  // Threshold antrean mengikuti data poli pada lantai aktif, bukan angka tetap.
+  const queueThreshold = useMemo(() => {
+    const highestQueue = Math.max(...filtered.map((p) => p.belum), 0);
+    return highestQueue > 0 ? highestQueue / 2 : 0;
+  }, [filtered]);
 
-    const initMap = async () => {
-      if (!mapElement.current || mapRef.current) return;
-      const leaflet = await import("leaflet");
-      if (disposed || mapRef.current) return;
+  const plottedPoints = useMemo(() => filtered.map((p) => ({
+    ...p,
+    cat: classify(p.belum, p.avg, queueThreshold),
+  })), [filtered, queueThreshold]);
 
-      const map = leaflet.default.map(mapElement.current, {
-        crs: leaflet.default.CRS.Simple,
-        minZoom: -2,
-        maxZoom: 3,
-        zoomControl: true,
-        attributionControl: false,
-        dragging: true,
-        touchZoom: true,
-        scrollWheelZoom: true,
-        doubleClickZoom: true,
-        boxZoom: true,
-        keyboard: true,
-        zoomSnap: 0.25,
-        zoomDelta: 0.5,
-        wheelPxPerZoomLevel: 60,
-        inertia: true,
-        inertiaDeceleration: 2000,
-        maxBoundsViscosity: 0.8,
-        bounceAtZoomLimits: false,
-        zoomAnimation: false,
-      });
+  // ── Axes ranges ─────────────────────────────────────────────────
+  const maxX = useMemo(() => {
+    const m = Math.max(...filtered.map((p) => p.belum), 10);
+    return Math.ceil(m / 10) * 10;
+  }, [filtered]);
 
-      map.fitBounds(MAP_BOUNDS);
-      map.setMaxBounds([[-200, -200], [1200, 1800]]);
-      leafletRef.current = leaflet.default;
-      mapRef.current = map;
-      map.dragging.enable();
-      map.touchZoom.enable();
-      map.scrollWheelZoom.enable();
-      map.doubleClickZoom.enable();
+  const maxY = useMemo(() => {
+    const m = Math.max(...filtered.map((p) => p.avg), 30);
+    return Math.ceil(m / 30) * 30; // round up to nearest 30
+  }, [filtered]);
 
-      // Denah sebagai layer Leaflet agar ikut pan, zoom, dan resize map
-      overlayRef.current = leaflet.default.imageOverlay(floorRef.current.image, MAP_BOUNDS, {
-        opacity: 0.9,
-        interactive: false,
-      }).addTo(map);
+  const chartW = CHART.svgW - CHART.pad.left - CHART.pad.right - CHART.pointInset;
+  const chartH = CHART.svgH - CHART.pad.top - CHART.pad.bottom;
 
-      // Render pertama kali
-      renderPins();
-      requestAnimationFrame(() => map.invalidateSize());
-    };
+  // Beri jarak dari sumbu Y supaya pin pada nilai 0 tetap terlihat jelas.
+  function toX(val: number) { return CHART.pad.left + CHART.pointInset + (val / maxX) * chartW; }
+  function toY(val: number) { return CHART.pad.top + chartH - (val / maxY) * chartH; }
 
-    void initMap();
-    return () => {
-      disposed = true;
-      overlayRef.current = null;
-      leafletRef.current = null;
-      mapRef.current?.remove();
-      mapRef.current = null;
-      markersRef.current = [];
-    };
-  }, []);
+  const xTicks = useMemo(() => {
+    const step = maxX <= 20 ? 5 : maxX <= 50 ? 10 : 20;
+    const ticks: number[] = [];
+    for (let v = 0; v <= maxX; v += step) ticks.push(v);
+    return ticks;
+  }, [maxX]);
 
-  // Ganti denah secara sinkron setelah lantai dipilih; tidak ada import async di sini.
-  useEffect(() => {
-    const map = mapRef.current;
-    const L = leafletRef.current;
-    if (!map || !L) return;
+  const yTicks = useMemo(() => {
+    const step = maxY <= 60 ? 15 : maxY <= 120 ? 30 : 60;
+    const ticks: number[] = [];
+    for (let v = 0; v <= maxY; v += step) ticks.push(v);
+    return ticks;
+  }, [maxY]);
 
-    overlayRef.current?.remove();
-    overlayRef.current = L.imageOverlay(floor.image, MAP_BOUNDS, {
-      opacity: 0.9,
-      interactive: false,
-    }).addTo(map);
-    map.invalidateSize();
-  }, [floor]);
+  const activeFloorLabel = FLOORS.find((f) => f.id === floorId)?.label ?? `Lantai ${floorId}`;
 
   return (
-    <section className="rounded-2xl border border-slate-700/40 bg-slate-800 p-5 shadow-md">
-      <style>{`
-        .leaflet-container { background: transparent !important; }
-        .poli-marker { min-width: 118px; border-radius: 10px; border: 2px solid rgba(15, 23, 42, .85); background: rgba(15, 23, 42, .92); color: #e2e8f0; padding: 4px 7px; text-align: center; box-shadow: 0 2px 8px rgba(15, 23, 42, .45); }
-        .poli-marker-selected { border-color: #67e8f9; box-shadow: 0 0 0 3px rgba(34, 211, 238, .35); }
-        .poli-marker strong { display: block; max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
-        .poli-marker-total { display: block; font-size: 13px; font-weight: 800; color: #f8fafc; }
-        .poli-marker-dots { display: flex; align-items: center; justify-content: center; gap: 3px; height: 23px; }
-        .poli-marker-dots i { display: block; border-radius: 9999px; box-shadow: 0 0 4px currentColor; }
-      `}</style>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-slate-200">Denah Lokasi Pasien</h2>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+    <section className="relative z-0 isolate flex h-full flex-col rounded-2xl border border-slate-700/50 bg-slate-800 p-6 shadow-xl text-slate-100">
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <h2 className="min-w-0 flex-1 text-lg text-blue-300 tracking-tight">
+          Matrix Kepadatan Poli: Antrean vs Waktu Tunggu
+        </h2>
+        <div className="flex shrink-0 items-center justify-end gap-2 text-[11px]">
           <div className="flex overflow-hidden rounded border border-slate-600 bg-slate-900">
-            {FLOORS.map((item) => <button key={item.id} type="button" onClick={() => setFloor(item)} className={`px-3 py-1.5 ${floor.id === item.id ? "bg-cyan-500/20 text-cyan-300" : "text-slate-400 hover:text-white"}`}>{item.label}</button>)}
+            {FLOORS.map((f) => (
+              <button key={f.id} type="button" onClick={() => setFloorId(f.id)}
+                className={`px-2 py-1 font-semibold transition-colors ${floorId === f.id ? "bg-cyan-500/20 text-cyan-300" : "text-slate-400 hover:text-white"}`}>
+                {f.label}
+              </button>
+            ))}
           </div>
-          <span className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-900 px-3 py-1.5 text-slate-300"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Lokasi Pasien</span>
-          <span className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-900 px-3 py-1.5 text-slate-300"><span className="h-2 w-2 rounded-full bg-rose-300" /> Priority Watchlist</span>
+          <span className="inline-flex items-center gap-1 text-slate-300">
+            <span className="h-2 w-2 rounded-full" style={{ background: CATEGORIES.lancar.color }} /> Lancar
+          </span>
+          <span className="inline-flex items-center gap-1 text-slate-300">
+            <span className="h-2 w-2 rounded-full" style={{ background: CATEGORIES.ramai.color }} /> Ramai
+          </span>
+          <span className="inline-flex items-center gap-1 text-slate-300">
+            <span className="h-2 w-2 rounded-full" style={{ background: CATEGORIES.lambat.color }} /> Lambat
+          </span>
+          <span className="inline-flex items-center gap-1 text-slate-300">
+            <span className="h-2 w-2 rounded-full" style={{ background: CATEGORIES.padat.color }} /> Padat
+          </span>
         </div>
       </div>
-      <div className="relative overflow-hidden rounded-xl border border-slate-700 bg-white">
-        <div
-          ref={mapElement}
-          className="h-[360px] w-full sm:h-[420px] lg:h-[480px]"
-          aria-label={`Peta interaktif ${floor.label}`}
-        />
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex items-center gap-2 rounded bg-slate-900/90 px-3 py-2 text-xs text-slate-300"><Layers size={14} className="text-cyan-400" /> {floor.label}</div>
-        {summaryError && <div className="absolute left-3 top-3 z-[500] rounded bg-rose-950/90 px-3 py-2 text-xs text-rose-200">{summaryError}</div>}
+
+      {/* Chart Area */}
+      <div className="relative flex min-h-[500px] flex-1 items-center overflow-hidden rounded-xl border border-slate-300 bg-[#ecf0f3e3] p-3 pt-7 md:p-4 md:pt-8">
+          <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded bg-slate-900/90 px-2.5 py-1 text-[11px] font-semibold text-slate-300 border border-slate-700/80 shadow-md">
+          <Layers size={13} className="text-cyan-400" /> {activeFloorLabel}
+        </div>
+
+        {error && (
+          <div className="absolute right-3 top-3 z-10 rounded bg-rose-950/90 px-3 py-1.5 text-xs text-rose-200 border border-rose-800">{error}</div>
+        )}
+
+        {loading && summaries.length === 0 ? (
+          <div className="flex h-[300px] items-center justify-center text-sm text-slate-600">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-cyan-500 border-t-transparent mr-3" />
+            Memuat data...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex h-[300px] flex-col items-center justify-center text-center text-slate-600">
+            <p className="text-base font-semibold text-slate-700">Tidak ada unit aktif di {activeFloorLabel}</p>
+          </div>
+        ) : (
+          <svg viewBox={`0 0 ${CHART.svgW} ${CHART.svgH}`} className="h-full w-full select-none" style={{ maxHeight: "520px" }}>
+            {/* Grid lines */}
+            {xTicks.map((v) => (
+              <line key={`xg-${v}`} x1={toX(v)} y1={CHART.pad.top} x2={toX(v)} y2={CHART.pad.top + chartH}
+                stroke="#cbd5e1" strokeWidth={1} />
+            ))}
+            {yTicks.map((v) => (
+              <line key={`yg-${v}`} x1={CHART.pad.left} y1={toY(v)} x2={CHART.pad.left + chartW + CHART.pointInset} y2={toY(v)}
+                stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" />
+            ))}
+
+            {/* Threshold waktu tunggu; batas jumlah antrean mengikuti data aktual poli */}
+            <line x1={CHART.pad.left} y1={toY(THRESHOLD.waitMinutes)} x2={CHART.pad.left + chartW + CHART.pointInset} y2={toY(THRESHOLD.waitMinutes)}
+              stroke="#64748b" strokeWidth={1.5} strokeDasharray="8 4" />
+
+            {/* Threshold label */}
+            <text x={CHART.pad.left + chartW + CHART.pointInset + 4} y={toY(THRESHOLD.waitMinutes) + 3} textAnchor="start" fill="#475569" className="text-[10px] font-semibold">
+              Batas Tunggu ({THRESHOLD.waitMinutes}m)
+            </text>
+
+            {/* Quadrant labels */}
+            {filtered.length > 0 && (
+              <>
+                <text x={toX(maxX * 0.25)} y={toY(maxY * 0.15)} textAnchor="middle" fill="#22c55e" opacity={0.55} className="text-[14px] font-black">LANCAR</text>
+                <text x={toX(maxX * 0.75)} y={toY(maxY * 0.15)} textAnchor="middle" fill="#eab308" opacity={0.65} className="text-[14px] font-black">RAMAI</text>
+                <text x={toX(maxX * 0.25)} y={toY(maxY * 0.85)} textAnchor="middle" fill="#f97316" opacity={0.65} className="text-[14px] font-black">LAMBAT</text>
+                <text x={toX(maxX * 0.75)} y={toY(maxY * 0.85)} textAnchor="middle" fill="#ef4444" opacity={0.65} className="text-[14px] font-black">PADAT</text>
+              </>
+            )}
+
+            {/* Axes */}
+            <line x1={CHART.pad.left} y1={CHART.pad.top + chartH} x2={CHART.pad.left + chartW + CHART.pointInset} y2={CHART.pad.top + chartH}
+              stroke="#64748b" strokeWidth={1.5} />
+            <line x1={CHART.pad.left} y1={CHART.pad.top} x2={CHART.pad.left} y2={CHART.pad.top + chartH}
+              stroke="#64748b" strokeWidth={1.5} />
+
+            {/* X ticks */}
+            {xTicks.map((v) => (
+              <g key={`xt-${v}`}>
+                <line x1={toX(v)} y1={CHART.pad.top + chartH} x2={toX(v)} y2={CHART.pad.top + chartH + 5} stroke="#64748b" strokeWidth={1} />
+                <text x={toX(v)} y={CHART.pad.top + chartH + 20} textAnchor="middle" fill="#475569" className="text-[11px] font-bold">{v}</text>
+              </g>
+            ))}
+
+            {/* Y ticks */}
+            {yTicks.map((v) => (
+              <g key={`yt-${v}`}>
+                <line x1={CHART.pad.left - 5} y1={toY(v)} x2={CHART.pad.left} y2={toY(v)} stroke="#64748b" strokeWidth={1} />
+                <text x={CHART.pad.left - 12} y={toY(v) + 4} textAnchor="end" fill="#475569" className="text-[11px] font-bold">{v}</text>
+              </g>
+            ))}
+
+            {/* Axis labels */}
+            <text transform={`translate(12, ${CHART.pad.top + chartH / 2}) rotate(-90)`} textAnchor="middle" fill="#475569" className="text-[11px] font-bold">
+              Rata-rata Waktu Tunggu (menit)
+            </text>
+            <text x={CHART.pad.left + CHART.pointInset + chartW / 2} y={CHART.svgH - 10} textAnchor="middle" fill="#475569" className="text-[11px] font-bold">
+              Pasien Belum Diperiksa
+            </text>
+
+            {/* Data dots */}
+            {plottedPoints.map((p) => {
+              const cx = toX(p.belum);
+              const cy = toY(p.avg);
+              const sel = selectedPoliId === p.id;
+              const fillColor = CATEGORIES[p.cat].color;
+              const radius = Math.max(4, Math.min(18, CHART.dotR + (p.belum / Math.max(maxX, 1)) * 10));
+              return (
+                <g key={p.id} className="cursor-pointer"
+                  onMouseEnter={() => setHovered({ id: p.id, name: p.name, total: p.total, belum: p.belum, avg: p.avg, over120: p.over120, cat: p.cat, sx: cx, sy: cy })}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => onSelectPoli?.(p.id)}>
+                  {sel && <circle cx={cx} cy={cy} r={radius + 6} fill="none" stroke="#67e8f9" strokeWidth={2.5} className="animate-pulse" />}
+                  <circle cx={cx} cy={cy} r={radius + 3} fill={fillColor} opacity={0.2} />
+                  <circle cx={cx} cy={cy} r={radius} fill={fillColor} opacity={0.85} stroke="#ffffff" strokeWidth={1.5} />
+                  {/* Name label — only for selected poli */}
+                  {sel && (
+                    <text x={cx} y={cy - radius - 8} textAnchor="middle" fill="#334155"
+                      className="text-[10px] font-bold pointer-events-none">
+                      {p.short}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        )}
       </div>
+
+      {/* Tooltip — di luar overflow-hidden agar tidak terpotong */}
+      {hovered && (
+        <div className="pointer-events-none absolute z-40 max-w-[260px] rounded-lg border border-slate-700 bg-slate-900/95 px-4 py-3 text-xs shadow-2xl text-slate-100 whitespace-normal"
+          style={{
+            left: `${Math.min(82, Math.max(18, (hovered.sx / CHART.svgW) * 100))}%`,
+            top: `${Math.min(82, Math.max(12, (hovered.sy / CHART.svgH) * 100))}%`,
+            transform: hovered.sy > CHART.svgH * 0.5 ? "translate(-50%, -130%)" : "translate(-50%, 10%)",
+          }}>
+          <div className="font-extrabold text-blue-300 text-sm mb-1.5">{hovered.name.toUpperCase()}</div>
+          <div className="space-y-1 text-[11px] text-slate-300">
+            <div>Total Pasien <span className="float-right font-bold text-white ml-4">{hovered.total}</span></div>
+            <div>Belum Diperiksa <span className="float-right font-bold text-white ml-4">{hovered.belum}</span></div>
+            <div>Rata-rata Tunggu <span className="float-right font-bold text-white ml-4">{hovered.avg.toFixed(0)} menit</span></div>
+            <div>Menunggu &gt;120 Menit <span className="float-right font-bold text-white ml-4">{hovered.over120}</span></div>
+            <div className="pt-1 border-t border-slate-700">
+              Status <span className="float-right font-bold ml-4" style={{ color: CATEGORIES[hovered.cat].color }}>
+                {CATEGORIES[hovered.cat].label}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
-

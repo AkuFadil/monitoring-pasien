@@ -61,7 +61,7 @@ export default function SummaryCards({ data }: { data: DetailAntrian[] }) {
         </p>
       </div>
 
-      {/* 2. Pasien Tunggu >3 Jam */}
+      {/* 2. Pasien Tunggu >2 Jam */}
       <Link
         href="/watchlist"
         className="group bg-slate-800/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 shadow-md hover:border-rose-500/40 transition-all flex flex-col justify-between block cursor-pointer"
@@ -70,7 +70,7 @@ export default function SummaryCards({ data }: { data: DetailAntrian[] }) {
           <div className="flex items-center gap-2 min-w-0">
             <ClockAlert size={16} className="text-rose-400 shrink-0" />
             <span className="text-[11px] font-bold uppercase tracking-wider text-rose-400 truncate">
-              PASIEN TUNGGU &gt;3 JAM
+              PASIEN TUNGGU &gt;2 JAM
             </span>
           </div>
           <span className="text-xs font-semibold text-rose-400 group-hover:translate-x-0.5 transition-transform shrink-0">

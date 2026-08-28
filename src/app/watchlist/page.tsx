@@ -67,7 +67,7 @@ export default function PriorityWatchlistPage() {
   // Filtered patients
   const filteredPatients = useMemo(() => {
     return watchlist.filter((p) => {
-      if (filterMode === "kritis" && p.menit_tunggu < 180) return false;
+      if (filterMode === "kritis" && p.menit_tunggu < 120) return false;
       if (!searchTerm) return true;
       const query = searchTerm.toLowerCase();
       return (
@@ -157,7 +157,7 @@ export default function PriorityWatchlistPage() {
               </p>
             </div>
             <span className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-400">
-              {">"} 180 Menit (3 Jam)
+              {">"} 120 Menit (2 Jam)
             </span>
           </div>
         </div>
@@ -217,7 +217,7 @@ export default function PriorityWatchlistPage() {
                   : "border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200"
               }`}
             >
-              Kritis {">"} 3 Jam ({count180})
+              Kritis {">"} 2 Jam ({count180})
             </button>
           </div>
         </div>
@@ -259,7 +259,7 @@ export default function PriorityWatchlistPage() {
               </thead>
               <tbody className="divide-y divide-slate-800/80 font-medium">
                 {paginatedPatients.map((p, idx) => {
-                  const isKritis = p.menit_tunggu >= 180;
+                  const isKritis = p.menit_tunggu >= 120;
                   return (
                     <tr
                       key={`${p.pasien_id}-${idx}`}

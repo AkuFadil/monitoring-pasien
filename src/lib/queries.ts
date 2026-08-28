@@ -1,5 +1,51 @@
 import pool from "./db";
-import type { DetailAntrian, PasienAntri, PasienDetail, HistoryPasien } from "@/types";
+import type { DetailAntrian, PasienAntri, PasienDetail, HistoryPasien, BPelayanan } from "@/types";
+
+/** Query 42 kolom lengkap dari tabel b_pelayanan */
+export const PELAYANAN_COLUMNS = `
+  a.id,
+  a.no_antrian,
+  a.jenis_kunjungan,
+  a.pasien_id,
+  a.kunjungan_id,
+  a.jenis_layanan,
+  a.unit_id,
+  a.unit_id_asal,
+  a.kso_id,
+  a.kelas_id,
+  a.tgl,
+  a.tgl_krs,
+  a.dilayani,
+  a.ket,
+  a.dokter_id,
+  a.dokter_pj_id,
+  a.type_dokter,
+  a.tgl_act,
+  a.user_act,
+  a.no_lab,
+  a.verifikasi,
+  a.verifikator,
+  a.hapus,
+  a.dari_loket,
+  a.tgl_act1,
+  a.tgl_act2,
+  a.tgl_act3,
+  a.diagnosa_klinik,
+  a.lokalisasi,
+  a.keterangan_klinik,
+  a.tanggal_sampel_pengambilan,
+  a.tanggal_sampel_diterima,
+  a.status_sampel,
+  a.bahan_yang_diperiksa,
+  a.is_dok_rm,
+  a.status_dari,
+  a.tgl_inap,
+  a.pel_st_sampel,
+  a.pel_bl,
+  a.pel_ver_klab,
+  a.satu_sehat_id,
+  a.tgl_ssid
+`;
 
 /**
  * Mapping kapasitas kursi per poli — hardcoded dari data RS dr. Soebandi.
@@ -119,8 +165,40 @@ export async function getPasienAntri(unitId: number | string, dilayani: number |
 }
 
 export async function getPasienDetail(pasienId: number | string): Promise<PasienDetail[]> {
-  const [rows] = await pool.query(`SELECT a.pasien_id, b.unit_alias, CASE WHEN a.dilayani = 0 THEN 'BELUM' ELSE 'SUDAH' END AS status_dilayani FROM db_rsd_soebandi_billing.b_pelayanan a JOIN db_rsd_soebandi_billing.b_ms_unit b ON a.unit_id = b.id WHERE DATE(a.tgl) = CURDATE() AND a.pasien_id = ? ORDER BY a.tgl_act`, [pasienId]);
+  const [rows] = await pool.query(
+    `SELECT 
+       ${PELAYANAN_COLUMNS},
+       COALESCE(NULLIF(TRIM(b.unit_alias), ''), b.nama) AS unit_alias,
+       b.nama AS nama_unit,
+       CASE WHEN a.dilayani = 0 THEN 'BELUM' ELSE 'SUDAH' END AS status_dilayani 
+     FROM db_rsd_soebandi_billing.b_pelayanan a 
+     LEFT JOIN db_rsd_soebandi_billing.b_ms_unit b ON a.unit_id = b.id 
+     WHERE DATE(a.tgl) = CURDATE() AND a.pasien_id = ? 
+     ORDER BY a.tgl_act ASC`,
+    [pasienId]
+  );
   return rows as PasienDetail[];
+}
+
+export async function getPelayanan(pasienId?: number | string, unitId?: number | string): Promise<BPelayanan[]> {
+  let sql = `
+    SELECT 
+      ${PELAYANAN_COLUMNS}
+    FROM db_rsd_soebandi_billing.b_pelayanan a
+    WHERE DATE(a.tgl) = CURDATE()
+  `;
+  const params: any[] = [];
+  if (pasienId) {
+    sql += ` AND a.pasien_id = ?`;
+    params.push(pasienId);
+  }
+  if (unitId) {
+    sql += ` AND a.unit_id = ?`;
+    params.push(unitId);
+  }
+  sql += ` ORDER BY a.tgl_act DESC`;
+  const [rows] = await pool.query(sql, params);
+  return rows as BPelayanan[];
 }
 
 export async function getHistoryPasien(pasienId: number | string): Promise<HistoryPasien[]> {
@@ -251,6 +329,11 @@ export async function getPriorityWatchlist(): Promise<import("@/types").Watchlis
     JOIN db_rsd_soebandi_billing.b_ms_unit mu ON bp.unit_id = mu.id
     WHERE DATE(bp.tgl) = CURDATE()
       AND bp.dilayani = 0
+      AND mu.parent_id = '1'
+      AND mu.aktif = 1
+      AND LOWER(mu.nama) NOT LIKE '%lab%'
+      AND LOWER(mu.nama) NOT LIKE '%radiologi%'
+      AND LOWER(mu.nama) NOT LIKE '%farmasi%'
       AND TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()) >= 120
     ORDER BY menit_tunggu DESC
   `);

@@ -225,26 +225,40 @@ export default function PasienDetailPage({ params }: PageProps) {
                 <div className="space-y-2.5">
                   {pasienDetails.map((detail, index) => (
                     <div
-                      key={`${detail.unit_alias}-${index}`}
-                      className="flex items-center justify-between p-3.5 rounded-xl border border-slate-700/70 bg-slate-900/60"
+                      key={`${detail.id || detail.unit_alias}-${index}`}
+                      className="p-3.5 rounded-xl border border-slate-700/70 bg-slate-900/60 space-y-2"
                     >
-                      <div>
-                        <p className="text-xs font-bold text-slate-200">
-                          {detail.unit_alias}
-                        </p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">
-                          Pelayanan #{index + 1}
-                        </p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-slate-200">
+                            {detail.unit_alias || detail.nama_unit}
+                            {detail.no_antrian && (
+                              <span className="ml-2 font-mono text-[10px] text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">
+                                No. Antrian: #{detail.no_antrian}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">
+                            Pelayanan #{index + 1} {detail.id ? `(ID: ${detail.id})` : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            detail.status_dilayani === "SUDAH"
+                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                              : "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                          }`}
+                        >
+                          {detail.status_dilayani === "SUDAH" ? "SUDAH DILAYANI" : "BELUM DILAYANI"}
+                        </span>
                       </div>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          detail.status_dilayani === "SUDAH"
-                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                            : "bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                        }`}
-                      >
-                        {detail.status_dilayani === "SUDAH" ? "SUDAH DILAYANI" : "BELUM DILAYANI"}
-                      </span>
+
+                      {(detail.diagnosa_klinik || detail.keterangan_klinik) && (
+                        <div className="text-[11px] bg-slate-800/60 p-2 rounded-lg border border-slate-700/50 text-slate-300">
+                          {detail.diagnosa_klinik && <p><span className="font-semibold text-slate-400">Diagnosa:</span> {detail.diagnosa_klinik}</p>}
+                          {detail.keterangan_klinik && <p><span className="font-semibold text-slate-400">Ket:</span> {detail.keterangan_klinik}</p>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
