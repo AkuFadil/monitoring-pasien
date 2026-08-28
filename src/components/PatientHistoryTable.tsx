@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -9,6 +9,7 @@ import {
   Pill,
   Search,
   Stethoscope,
+  X,
 } from "lucide-react";
 import Pagination from "@/components/Pagination";
 import type { DetailAntrian, HistoryPerjalanan, PasienAntri } from "@/types";
@@ -100,8 +101,38 @@ export default function PatientHistoryTable({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // State Dropdown Unit Search
+  const [isUnitOpen, setIsUnitOpen] = useState(false);
+  const [unitSearch, setUnitSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const selectedUnit =
     units.find((unit) => unit.unit_id === selectedUnitId) ?? units[0];
+
+  // Filter list unit berdasarkan pencarian
+  const filteredUnits = useMemo(
+    () =>
+      units.filter((unit) =>
+        unit.unit_tampil
+          .toLowerCase()
+          .includes(unitSearch.trim().toLowerCase()),
+      ),
+    [units, unitSearch],
+  );
+
+  // Handle klik di luar area dropdown untuk menutup menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsUnitOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!units.some((unit) => unit.unit_id === selectedUnitId)) {
@@ -184,8 +215,8 @@ export default function PatientHistoryTable({
   if (!selectedUnit) return null;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-800/90 backdrop-blur-md shadow-xl">
-      <div className="border-b border-slate-700/70 p-4 sm:p-5">
+    <section className="rounded-2xl border border-slate-700/60 bg-slate-800/90 backdrop-blur-md shadow-xl">
+      <div className="relative z-20 border-b border-slate-700/70 p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-blue-400">
@@ -199,24 +230,83 @@ export default function PatientHistoryTable({
               baris/item pasien untuk melihat detail profil.
             </p>
           </div>
-          <div className="relative w-full lg:w-64">
-            <select
-              value={selectedUnit.unit_id}
-              onChange={(event) =>
-                setSelectedUnitId(Number(event.target.value))
-              }
-              className="w-full appearance-none rounded-xl border border-slate-700 bg-slate-900/90 px-3.5 py-2.5 pr-9 text-sm font-semibold text-slate-200 outline-none transition focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/40"
+
+          {/* Custom Searchable Dropdown Unit Poli */}
+          <div className="relative w-full lg:w-72" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsUnitOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between rounded-xl border border-slate-700 bg-slate-900/90 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-200 outline-none transition hover:border-slate-600 focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/40"
             >
-              {units.map((unit) => (
-                <option key={unit.unit_id} value={unit.unit_id}>
-                  {unit.unit_tampil}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={16}
-              className="pointer-events-none absolute right-3 top-3.5 text-slate-400"
-            />
+              <span className="truncate">{selectedUnit.unit_tampil}</span>
+              <ChevronDown
+                size={16}
+                className={`ml-2 shrink-0 text-slate-400 transition-transform duration-200 ${
+                  isUnitOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isUnitOpen && (
+              <div className="absolute right-0 z-50 mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 shadow-2xl backdrop-blur-md">
+                <div className="p-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-300 focus-within:border-cyan-500/60">
+                    <Search size={14} className="text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={unitSearch}
+                      onChange={(e) => setUnitSearch(e.target.value)}
+                      placeholder="Cari unit poli..."
+                      className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
+                      autoFocus
+                    />
+                    {unitSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setUnitSearch("")}
+                        className="text-slate-400 hover:text-slate-200"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <ul className="max-h-60 overflow-y-auto py-1 text-xs text-slate-200 scrollbar-thin scrollbar-thumb-slate-700">
+                  {filteredUnits.length === 0 ? (
+                    <li className="px-3 py-2.5 text-center text-slate-500">
+                      Unit poli tidak ditemukan
+                    </li>
+                  ) : (
+                    filteredUnits.map((unit) => {
+                      const isSelected = unit.unit_id === selectedUnitId;
+                      return (
+                        <li key={unit.unit_id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedUnitId(unit.unit_id);
+                              setIsUnitOpen(false);
+                              setUnitSearch("");
+                            }}
+                            className={`w-full px-3.5 py-2 text-left transition-colors flex items-center justify-between ${
+                              isSelected
+                                ? "bg-cyan-500/20 font-bold text-cyan-300"
+                                : "hover:bg-slate-800/80 text-slate-300"
+                            }`}
+                          >
+                            <span className="truncate">{unit.unit_tampil}</span>
+                            {isSelected && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0 ml-2" />
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 
