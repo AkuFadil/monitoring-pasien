@@ -188,7 +188,7 @@ export default function PatientHistoryTable({
       <div className="border-b border-slate-700/70 p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-cyan-400">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-blue-400">
               Patient Journey Monitor
             </p>
             <h2 className="mt-1 text-lg font-extrabold text-white sm:text-xl tracking-tight">
@@ -255,7 +255,7 @@ export default function PatientHistoryTable({
         <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
           <span>
             Unit aktif:{" "}
-            <strong className="text-cyan-300 font-bold">
+            <strong className="text-rose-300 font-bold">
               {selectedUnit.unit_tampil}
             </strong>
           </span>
@@ -295,10 +295,10 @@ export default function PatientHistoryTable({
                     onClick={() => router.push(`/pasien/${patient.pasien_id}`)}
                     className="cursor-pointer transition-all duration-150 hover:bg-cyan-950/30 hover:border-l-4 hover:border-cyan-400 group"
                   >
-                    <td className="whitespace-nowrap px-4 py-3.5 font-mono text-cyan-400 font-bold group-hover:text-cyan-300 group-hover:underline">
+                    <td className="whitespace-nowrap px-4 py-3.5 font-mono text-blue-400 font-bold group-hover:text-slate-300 group-hover:underline">
                       {patient.no_rm}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 font-semibold text-slate-100 group-hover:text-cyan-200">
+                    <td className="whitespace-nowrap px-4 py-3.5 font-semibold text-slate-100 group-hover:text-blue-300">
                       {patient.nama}
                     </td>
                     <td className="max-w-md px-4 py-3.5 leading-relaxed text-slate-300">

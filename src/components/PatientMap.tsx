@@ -348,7 +348,7 @@ export default function PatientMap({
               Rata-rata Waktu Tunggu (menit)
             </text>
             <text x={CHART.pad.left + CHART.pointInset + chartW / 2} y={CHART.svgH - 10} textAnchor="middle" fill="#475569" className="text-[11px] font-bold">
-              Pasien Belum Diperiksa
+              Jumlag Pasien Yang Sedang Dalam Pelayanan
             </text>
 
             {/* Data dots */}

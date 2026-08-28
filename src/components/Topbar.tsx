@@ -56,7 +56,7 @@ export default function Topbar() {
       {/* Kiri: sapaan pengguna + badge role */}
       <div className="flex items-center gap-2 sm:gap-3">
         <p className="text-xs sm:text-sm font-medium text-slate-100">
-          Halo, <span className="font-bold text-cyan-300">{user?.nama || "Pengguna"}</span>
+          Halo, <span className="font-bold text-blue-300">{user?.nama || "Pengguna"}</span>
         </p>
 
         {user && (
