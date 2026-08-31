@@ -18,31 +18,7 @@ interface UserProfile {
   app_access: number;
 }
 
-/** Match user role string with unit name / unit_alias in DB */
-function findUnitByRole(units: DetailAntrian[], role: string): DetailAntrian | null {
-  if (!role) return null;
-  const lowerRole = role.toLowerCase().trim().replace(/^poli\s+/i, "");
-
-  const direct = units.find((u) => {
-    const uName = u.nama.toLowerCase().replace(/^poli\s+/i, "").trim();
-    const uAlias = u.unit_tampil.toLowerCase().replace(/^poli\s+/i, "").trim();
-    return uName === lowerRole || uAlias === lowerRole;
-  });
-  if (direct) return direct;
-
-  return (
-    units.find((u) => {
-      const uName = u.nama.toLowerCase();
-      const uAlias = u.unit_tampil.toLowerCase();
-      return (
-        uName.includes(lowerRole) ||
-        lowerRole.includes(uName) ||
-        uAlias.includes(lowerRole) ||
-        lowerRole.includes(uAlias)
-      );
-    }) ?? null
-  );
-}
+import { findUnitByRole } from "@/lib/units";
 
 export default function DashboardPage() {
   const [data, setData] = useState<DetailAntrian[]>([]);

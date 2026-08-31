@@ -26,6 +26,7 @@ export default function PriorityWatchlistPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [unitInfo, setUnitInfo] = useState<{ unit_id: number; nama: string; unit_tampil: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMode, setFilterMode] = useState<"all" | "kritis">("all");
   const [page, setPage] = useState(1);
@@ -41,6 +42,7 @@ export default function PriorityWatchlistPage() {
         setWatchlist(json.data ?? []);
         setCount120(json.count120 ?? 0);
         setCount180(json.count180 ?? 0);
+        setUnitInfo(json.unitInfo ?? null);
       } else {
         setError(json.message || "Gagal memuat data Priority Watchlist");
       }
@@ -99,19 +101,26 @@ export default function PriorityWatchlistPage() {
               <ShieldAlert size={32} className="animate-pulse" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
                   PRIORITY WATCHLIST ENDPOINT
                 </span>
+                {unitInfo && (
+                  <span className="rounded-full border border-cyan-500/30 bg-cyan-500/15 px-2.5 py-0.5 text-[10px] font-bold text-cyan-300">
+                    {unitInfo.unit_tampil || unitInfo.nama}
+                  </span>
+                )}
                 <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
                   Tunggu {">"} 120 Menit
                 </span>
               </div>
               <h1 className="mt-1 text-2xl font-extrabold text-slate-100 sm:text-3xl">
-                Monitoring Priority Watchlist Pasien
+                Monitoring Priority Watchlist Pasien {unitInfo ? `(${unitInfo.unit_tampil || unitInfo.nama})` : ""}
               </h1>
               <p className="mt-1 text-xs text-slate-400">
-                Menampilkan daftar semua pasien dari seluruh poli yang mengalami waktu tunggu melebihi 2 jam hari ini.
+                {unitInfo
+                  ? `Menampilkan daftar pasien dari ${unitInfo.unit_tampil || unitInfo.nama} yang mengalami waktu tunggu melebihi 2 jam hari ini.`
+                  : "Menampilkan daftar semua pasien dari seluruh poli yang mengalami waktu tunggu melebihi 2 jam hari ini."}
               </p>
             </div>
           </div>

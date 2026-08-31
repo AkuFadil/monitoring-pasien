@@ -308,8 +308,8 @@ export async function getHistoryPerjalanan(pasienId: number | string): Promise<i
   return rows as import("@/types").HistoryPerjalanan[];
 }
 
-export async function getPriorityWatchlist(): Promise<import("@/types").WatchlistPasien[]> {
-  const [rows] = await pool.query(`
+export async function getPriorityWatchlist(unitId?: number | string): Promise<import("@/types").WatchlistPasien[]> {
+  let sql = `
     SELECT
       bp.pasien_id,
       mp.no_rm,
@@ -335,8 +335,15 @@ export async function getPriorityWatchlist(): Promise<import("@/types").Watchlis
       AND LOWER(mu.nama) NOT LIKE '%radiologi%'
       AND LOWER(mu.nama) NOT LIKE '%farmasi%'
       AND TIMESTAMPDIFF(MINUTE, bp.tgl_act, NOW()) >= 120
-    ORDER BY menit_tunggu DESC
-  `);
+  `;
+  const params: any[] = [];
+  if (unitId) {
+    sql += ` AND bp.unit_id = ?`;
+    params.push(unitId);
+  }
+  sql += ` ORDER BY menit_tunggu DESC`;
+
+  const [rows] = await pool.query(sql, params);
   return rows as import("@/types").WatchlistPasien[];
 }
 
